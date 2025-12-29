@@ -135,6 +135,7 @@ export class MonthView extends BaseComponent {
                 border-right: 1px solid var(--fc-border-color);
                 display: flex;
                 flex-direction: column;
+                min-width: 0; /* Critical for Grid Item shrinking */
             }
 
             .month-day:last-child {
