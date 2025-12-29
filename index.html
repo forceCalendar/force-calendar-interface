@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Calendar App</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8fafc; /* Matches our new theme bg */
+        }
+
+        #app {
+            height: 100vh;
+            width: 100vw;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Make the calendar take full available space */
+        force-calendar {
+            flex: 1;
+            /* We override the default height attribute to be flexible */
+            --calendar-height: 100% !important; 
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <force-calendar view="month"></force-calendar>
+    </div>
+
+    <script type="module">
+        import './src/index.js';
+        
+        // Wait for calendar to be upgraded
+        customElements.whenDefined('force-calendar').then(() => {
+            const calendar = document.querySelector('force-calendar');
+            
+            // Helper to add days to today
+            const addDays = (days) => {
+                const d = new Date();
+                d.setDate(d.getDate() + days);
+                return d;
+            };
+
+            // Sample Events Data
+            const events = [
+                {
+                    id: '1',
+                    title: 'Project Kickoff 🚀',
+                    start: new Date().setHours(10, 0),
+                    end: new Date().setHours(11, 30),
+                    backgroundColor: '#3B82F6' // Blue
+                },
+                {
+                    id: '2',
+                    title: 'Design Review',
+                    start: new Date().setHours(14, 0),
+                    end: new Date().setHours(15, 0),
+                    backgroundColor: '#8B5CF6' // Purple
+                },
+                {
+                    id: '3',
+                    title: 'Development Sprint',
+                    start: addDays(1),
+                    end: addDays(3),
+                    allDay: true,
+                    backgroundColor: '#10B981' // Emerald
+                },
+                {
+                    id: '4',
+                    title: 'Client Meeting',
+                    start: addDays(2).setHours(11, 0),
+                    end: addDays(2).setHours(12, 0),
+                    backgroundColor: '#F59E0B' // Amber
+                },
+                {
+                    id: '5',
+                    title: 'Team Lunch 🍕',
+                    start: addDays(-1).setHours(12, 30),
+                    end: addDays(-1).setHours(13, 30),
+                    backgroundColor: '#EF4444' // Red
+                },
+                {
+                    id: '6',
+                    title: 'Q3 Planning',
+                    start: addDays(5),
+                    end: addDays(5),
+                    allDay: true,
+                    backgroundColor: '#6366F1' // Indigo
+                }
+            ];
+
+            // Add events with a slight delay to ensure state is ready
+            setTimeout(() => {
+                events.forEach(event => calendar.addEvent(event));
+                console.log('Sample events added to Force Calendar');
+            }, 500);
+        });
+        
+        console.log('Force Calendar App initialized');
+    </script>
+</body>
+</html>

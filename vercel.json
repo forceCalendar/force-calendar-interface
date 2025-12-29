@@ -1,26 +1,11 @@
 {
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "framework": null,
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "framework": "vite",
   "rewrites": [
     {
-      "source": "/",
+      "source": "/docs",
       "destination": "/docs/index.html"
-    },
-    {
-      "source": "/test",
-      "destination": "/docs/test-calendar.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/src/(.*)",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
     }
   ]
 }

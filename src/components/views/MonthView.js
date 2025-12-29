@@ -84,147 +84,160 @@ export class MonthView extends BaseComponent {
                 display: flex;
                 flex-direction: column;
                 height: 100%;
+                background: var(--fc-background);
             }
 
             .month-header {
                 display: grid;
                 grid-template-columns: repeat(7, 1fr);
-                gap: var(--fc-border-width);
-                background: var(--fc-border-color);
-                border-bottom: var(--fc-border-width) solid var(--fc-border-color);
+                background: var(--fc-background);
+                border-bottom: 1px solid var(--fc-border-color);
+                z-index: 5;
             }
 
             .month-header-cell {
-                background: var(--fc-background);
-                padding: var(--fc-spacing-sm) var(--fc-spacing-xs);
-                text-align: center;
-                font-weight: 600;
-                font-size: var(--fc-font-size-sm);
-                color: var(--fc-text-secondary);
+                padding: var(--fc-spacing-sm);
+                text-align: left; /* Align with dates */
+                font-weight: var(--fc-font-weight-bold);
+                font-size: 10px;
+                color: var(--fc-text-light);
                 text-transform: uppercase;
+                letter-spacing: 0.1em;
+                border-left: 1px solid transparent; /* Alignment hack */
+                padding-left: 8px;
             }
 
             .month-body {
                 flex: 1;
                 display: flex;
                 flex-direction: column;
+                overflow: hidden;
             }
 
             .month-week {
                 flex: 1;
                 display: grid;
                 grid-template-columns: repeat(7, 1fr);
-                gap: var(--fc-border-width);
-                background: var(--fc-border-color);
+                border-bottom: 1px solid var(--fc-border-color);
             }
-
-            .month-week:not(:last-child) {
-                border-bottom: var(--fc-border-width) solid var(--fc-border-color);
+            
+            .month-week:last-child {
+                border-bottom: none;
             }
 
             .month-day {
                 background: var(--fc-background);
-                padding: var(--fc-spacing-xs);
+                padding: 4px;
                 position: relative;
-                cursor: pointer;
+                cursor: default;
                 overflow: hidden;
                 min-height: 80px;
-                transition: background-color var(--fc-transition-fast);
+                border-right: 1px solid var(--fc-border-color);
+                display: flex;
+                flex-direction: column;
+            }
+
+            .month-day:last-child {
+                border-right: none;
             }
 
             .month-day:hover {
-                background: var(--fc-background-hover);
+                background: var(--fc-background-alt);
             }
 
             .month-day.other-month {
-                background: var(--fc-gray-50);
+                background: var(--fc-background-alt);
+                background-image: linear-gradient(45deg, #f9fafb 25%, transparent 25%, transparent 50%, #f9fafb 50%, #f9fafb 75%, transparent 75%, transparent);
+                background-size: 10px 10px;
             }
 
             .month-day.other-month .day-number {
-                color: var(--fc-gray-400);
-            }
-
-            .month-day.today {
-                background: ${StyleUtils.hexToRgba(StyleUtils.colors.primary, 0.05)};
-            }
-
-            .month-day.today .day-number {
-                background: var(--fc-primary-color);
-                color: white;
-                border-radius: 50%;
-                width: 28px;
-                height: 28px;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
+                color: var(--fc-text-light);
+                opacity: 0.5;
             }
 
             .month-day.selected {
-                background: ${StyleUtils.hexToRgba(StyleUtils.colors.primary, 0.1)};
-                outline: 2px solid var(--fc-primary-color);
-                outline-offset: -2px;
-            }
-
-            .month-day.weekend {
-                background: var(--fc-gray-50);
+                background: var(--fc-background-hover);
             }
 
             .day-header {
                 display: flex;
-                align-items: flex-start;
+                align-items: center;
                 justify-content: space-between;
-                margin-bottom: var(--fc-spacing-xs);
+                padding: 4px;
+                margin-bottom: 2px;
             }
-
+            
             .day-number {
-                font-size: var(--fc-font-size-base);
-                font-weight: 500;
+                font-size: 12px;
+                font-family: var(--fc-font-family); /* Ensure monospaced feel if available */
+                font-weight: var(--fc-font-weight-medium);
                 color: var(--fc-text-color);
-                line-height: 1.5;
+                line-height: 1;
+            }
+            
+            .month-day.today .day-number {
+                color: white;
+                background: var(--fc-danger-color); /* Red for Today (Calendar standard) */
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                margin-left: -4px; /* Optical adjustment */
             }
 
             .day-events {
                 display: flex;
                 flex-direction: column;
                 gap: 2px;
+                flex: 1;
+                overflow: hidden;
             }
 
+            /* Precision Event Style */
             .event-item {
-                font-size: var(--fc-font-size-xs);
-                padding: 2px 4px;
-                border-radius: 2px;
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 2px; /* Micro rounding */
+                
+                /* High Contrast */
                 background: var(--fc-primary-color);
                 color: white;
+                
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
                 cursor: pointer;
-                transition: opacity var(--fc-transition-fast);
+                line-height: 1.3;
+                font-weight: var(--fc-font-weight-medium);
+                margin: 0 1px;
+                border: 1px solid rgba(0,0,0,0.05); /* Subtle border for definition */
             }
 
             .event-item:hover {
                 opacity: 0.9;
             }
 
-            .event-item.all-day {
-                font-weight: 500;
-            }
-
             .event-time {
-                font-weight: 600;
+                font-weight: var(--fc-font-weight-bold);
                 margin-right: 4px;
+                opacity: 0.9;
+                font-size: 10px;
             }
 
             .more-events {
-                font-size: var(--fc-font-size-xs);
+                font-size: 10px;
                 color: var(--fc-text-secondary);
                 cursor: pointer;
-                padding: 2px 4px;
-                text-align: center;
+                padding: 1px 4px;
+                font-weight: var(--fc-font-weight-medium);
+                text-align: right;
             }
 
             .more-events:hover {
-                color: var(--fc-primary-color);
+                color: var(--fc-text-color);
                 text-decoration: underline;
             }
 
@@ -236,17 +249,17 @@ export class MonthView extends BaseComponent {
                 }
 
                 .day-number {
-                    font-size: var(--fc-font-size-sm);
+                    font-size: 11px;
                 }
 
                 .event-item {
                     font-size: 10px;
-                    padding: 1px 2px;
+                    padding: 1px 3px;
                 }
 
                 .month-header-cell {
-                    font-size: 10px;
-                    padding: var(--fc-spacing-xs);
+                    font-size: 9px;
+                    padding: 4px;
                 }
             }
 
@@ -257,6 +270,7 @@ export class MonthView extends BaseComponent {
                 justify-content: center;
                 height: 100%;
                 color: var(--fc-text-secondary);
+                font-weight: var(--fc-font-weight-medium);
             }
 
             /* Empty state */
@@ -382,17 +396,24 @@ export class MonthView extends BaseComponent {
     }
 
     renderEvent(event) {
-        const { title, start, end, allDay, backgroundColor = '#4285F4', textColor } = event;
+        const { title, start, end, allDay, backgroundColor, textColor } = event;
 
-        const bgColor = backgroundColor || StyleUtils.colors.primary;
-        const fgColor = textColor || StyleUtils.getContrastColor(bgColor);
+        let style = '';
+        if (backgroundColor) {
+            style += `background-color: ${backgroundColor};`;
+            // Ensure high contrast text if custom BG is used
+            if (textColor) {
+                style += `color: ${textColor};`;
+            } else {
+                style += `color: white;`; 
+            }
+        }
 
         let timeStr = '';
         if (!allDay && start) {
             timeStr = DateUtils.formatTime(new Date(start), false, false);
         }
 
-        const style = `background-color: ${bgColor}; color: ${fgColor};`;
         const classes = ['event-item'];
         if (allDay) classes.push('all-day');
 

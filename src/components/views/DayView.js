@@ -8,9 +8,9 @@ import { BaseComponent } from '../../core/BaseComponent.js';
 export class DayView extends BaseComponent {
     template() {
         return `
-            <div style="padding: 20px; text-align: center;">
-                <h3>Day View</h3>
-                <p>Day view coming soon...</p>
+            <div style="padding: var(--fc-spacing-2xl); text-align: center; color: var(--fc-text-secondary);">
+                <h3 style="margin-bottom: var(--fc-spacing-md); color: var(--fc-text-color);">Day View</h3>
+                <p>Day view implementation coming soon...</p>
             </div>
         `;
     }
