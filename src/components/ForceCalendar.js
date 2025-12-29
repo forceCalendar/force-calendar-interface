@@ -15,6 +15,7 @@ import { MonthView } from './views/MonthView.js';
 import { WeekView } from './views/WeekView.js';
 import { DayView } from './views/DayView.js';
 import { AgendaView } from './views/AgendaView.js';
+import { EventForm } from './EventForm.js'; // Import EventForm
 
 // Register view components
 if (!customElements.get('force-calendar-month')) {
@@ -29,6 +30,8 @@ if (!customElements.get('force-calendar-day')) {
 if (!customElements.get('force-calendar-agenda')) {
     customElements.define('force-calendar-agenda', AgendaView);
 }
+// EventForm is self-registering in its file
+
 
 export class ForceCalendar extends BaseComponent {
     static get observedAttributes() {
@@ -130,82 +133,90 @@ export class ForceCalendar extends BaseComponent {
             }
 
             .fc-header {
-                display: flex;
+                display: grid;
+                grid-template-columns: 1fr auto 1fr;
                 align-items: center;
-                justify-content: space-between;
                 padding: var(--fc-spacing-md) var(--fc-spacing-lg);
-                background: var(--fc-background);
+                background: rgba(255, 255, 255, 0.95);
+                -webkit-backdrop-filter: blur(8px); /* Safari support */
+                backdrop-filter: blur(8px);
                 border-bottom: 1px solid var(--fc-border-color);
                 z-index: 10;
                 position: sticky;
                 top: 0;
             }
 
-            .fc-header-left,
-            .fc-header-right {
+            .fc-header-left {
                 display: flex;
                 align-items: center;
-                gap: var(--fc-spacing-lg);
+                gap: var(--fc-spacing-md);
+                justify-self: start;
+                flex-basis: 0; /* Force Safari to distribute space */
             }
 
             .fc-header-center {
-                position: absolute;
-                left: 50%;
-                transform: translateX(-50%);
+                display: flex;
+                align-items: center;
+                gap: var(--fc-spacing-lg);
+                justify-self: center;
+            }
+
+            .fc-header-right {
+                display: flex;
+                align-items: center;
+                gap: var(--fc-spacing-md);
+                justify-self: end;
+                flex-basis: 0; /* Force Safari to distribute space */
             }
 
             .fc-title {
-                font-size: 1rem;
+                font-size: 14px;
                 font-weight: var(--fc-font-weight-semibold);
                 color: var(--fc-text-color);
                 white-space: nowrap;
                 letter-spacing: -0.01em;
-            }
-
-            .fc-nav-buttons {
-                display: flex;
-                gap: 0;
-                background: var(--fc-background);
-                border: 1px solid var(--fc-border-color);
-                border-radius: var(--fc-border-radius-sm);
-                overflow: hidden;
-            }
-
-            .fc-nav-buttons .fc-btn {
-                border: none;
-                border-right: 1px solid var(--fc-border-color);
-                background: var(--fc-background);
-                padding: 4px;
-                height: 28px; /* Compact */
-                width: 28px;
-                border-radius: 0;
-                color: var(--fc-text-secondary);
-                transition: all var(--fc-transition-fast);
-            }
-            
-            .fc-nav-buttons .fc-btn:last-child {
-                border-right: none;
-            }
-            
-            .fc-nav-buttons .fc-btn:hover:not(:disabled) {
-                background: var(--fc-background-hover);
-                color: var(--fc-text-color);
+                min-width: 140px;
+                text-align: center;
             }
 
             .fc-btn-today {
                 border-radius: var(--fc-border-radius-sm);
-                padding: 4px 12px;
-                font-size: var(--fc-font-size-sm);
+                padding: 0 12px;
+                font-size: 12px;
                 font-weight: var(--fc-font-weight-medium);
                 border: 1px solid var(--fc-border-color);
                 background: var(--fc-background);
                 color: var(--fc-text-color);
                 height: 28px;
                 transition: all var(--fc-transition-fast);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
             }
 
             .fc-btn-today:hover {
                 background: var(--fc-background-hover);
+                border-color: var(--fc-border-color-hover);
+            }
+
+            .fc-nav-arrow {
+                border: 1px solid var(--fc-border-color);
+                background: var(--fc-background);
+                height: 28px;
+                width: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: var(--fc-border-radius-sm);
+                color: var(--fc-text-secondary);
+                cursor: pointer;
+                transition: all var(--fc-transition-fast);
+                padding: 0;
+            }
+
+            .fc-nav-arrow:hover {
+                background: var(--fc-background-hover);
+                color: var(--fc-text-color);
                 border-color: var(--fc-border-color-hover);
             }
 
@@ -222,11 +233,14 @@ export class ForceCalendar extends BaseComponent {
                 border: none;
                 border-right: 1px solid var(--fc-border-color);
                 color: var(--fc-text-secondary);
-                padding: 4px 12px;
+                padding: 0 12px;
                 font-size: var(--fc-font-size-sm);
                 font-weight: var(--fc-font-weight-medium);
                 transition: background-color var(--fc-transition-fast);
                 cursor: pointer;
+                height: 28px;
+                display: flex;
+                align-items: center;
             }
             
             .fc-view-button:last-child {
@@ -239,10 +253,10 @@ export class ForceCalendar extends BaseComponent {
             }
 
             .fc-view-button.active {
-                background: var(--fc-background-alt); /* Subtle change */
+                background: var(--fc-background-alt);
                 color: var(--fc-text-color);
                 font-weight: var(--fc-font-weight-semibold);
-                box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); /* Pressed look */
+                box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
             }
 
             .fc-body {
@@ -291,18 +305,28 @@ export class ForceCalendar extends BaseComponent {
 
             /* Icons */
             .fc-icon {
-                width: 20px;
-                height: 20px;
+                width: 18px;
+                height: 18px;
                 fill: currentColor;
             }
 
-            /* Responsive */
-            @media (max-width: 768px) {
+            /* Responsive Adjustments */
+            @media (max-width: 850px) {
                 .fc-header {
+                    display: flex;
                     flex-direction: column;
-                    gap: var(--fc-spacing-lg);
                     align-items: stretch;
+                    gap: var(--fc-spacing-md);
+                    height: auto;
+                    position: static;
                     padding: var(--fc-spacing-md);
+                }
+
+                .fc-header-center {
+                    order: -1;
+                    text-align: center;
+                    width: 100%;
+                    padding: var(--fc-spacing-xs) 0;
                 }
 
                 .fc-header-left,
@@ -310,19 +334,8 @@ export class ForceCalendar extends BaseComponent {
                     justify-content: space-between;
                     width: 100%;
                 }
-
-                .fc-header-center {
-                    position: static;
-                    transform: none;
-                    text-align: center;
-                    order: -1;
-                }
                 
-                .fc-view-buttons {
-                    width: 100%;
-                }
-                
-                .fc-view-button {
+                #create-event-btn {
                     flex: 1;
                 }
             }
@@ -349,24 +362,25 @@ export class ForceCalendar extends BaseComponent {
             <div class="force-calendar">
                 <header class="fc-header">
                     <div class="fc-header-left">
-                        <button class="fc-btn fc-btn-secondary fc-btn-today" data-action="today">
+                        <button class="fc-btn-today" data-action="today">
                             Today
                         </button>
-                        <div class="fc-nav-buttons">
-                            <button class="fc-btn fc-btn-icon" data-action="previous" title="Previous">
-                                ${this.getIcon('chevron-left')}
-                            </button>
-                            <button class="fc-btn fc-btn-icon" data-action="next" title="Next">
-                                ${this.getIcon('chevron-right')}
-                            </button>
-                        </div>
                     </div>
 
                     <div class="fc-header-center">
+                        <button class="fc-nav-arrow" data-action="previous" title="Previous">
+                            ${this.getIcon('chevron-left')}
+                        </button>
                         <h2 class="fc-title">${title}</h2>
+                        <button class="fc-nav-arrow" data-action="next" title="Next">
+                            ${this.getIcon('chevron-right')}
+                        </button>
                     </div>
 
                     <div class="fc-header-right">
+                        <button class="fc-btn fc-btn-primary" id="create-event-btn" style="height: 28px; padding: 0 12px; font-size: 12px;">
+                            + New Event
+                        </button>
                         <div class="fc-view-buttons" role="group">
                             <button class="fc-view-button ${view === 'month' ? 'active' : ''}"
                                     data-view="month">Month</button>
@@ -375,7 +389,7 @@ export class ForceCalendar extends BaseComponent {
                             <button class="fc-view-button ${view === 'day' ? 'active' : ''}"
                                     data-view="day">Day</button>
                             <button class="fc-view-button ${view === 'agenda' ? 'active' : ''}"
-                                    data-view="agenda">Agenda</button>
+                                    data-view="agenda">List</button>
                         </div>
                     </div>
                 </header>
@@ -392,6 +406,8 @@ export class ForceCalendar extends BaseComponent {
                         </div>
                     `}
                 </div>
+                
+                <force-calendar-event-form id="event-modal"></force-calendar-event-form>
             </div>
         `;
     }
@@ -420,6 +436,39 @@ export class ForceCalendar extends BaseComponent {
         this.$$('[data-view]').forEach(button => {
             button.addEventListener('click', this.handleViewChange.bind(this));
         });
+
+        // Event Modal Handling
+        const modal = this.$('#event-modal');
+        const createBtn = this.$('#create-event-btn');
+
+        if (createBtn && modal) {
+            createBtn.addEventListener('click', () => {
+                modal.open(new Date());
+            });
+        }
+
+        // Listen for day clicks from the view
+        this.shadowRoot.addEventListener('day-click', (e) => {
+            if (modal) {
+                modal.open(e.detail.date);
+            }
+        });
+
+        // Handle event saving
+        if (modal) {
+            modal.addEventListener('save', (e) => {
+                const eventData = e.detail;
+                // Robust Safari support check for randomUUID
+                const id = (window.crypto && typeof window.crypto.randomUUID === 'function') 
+                    ? window.crypto.randomUUID() 
+                    : Math.random().toString(36).substring(2, 15);
+                    
+                this.stateManager.addEvent({
+                    id,
+                    ...eventData
+                });
+            });
+        }
     }
 
     handleNavigation(event) {
@@ -530,4 +579,6 @@ export class ForceCalendar extends BaseComponent {
 }
 
 // Register component
-customElements.define('force-calendar', ForceCalendar);
+if (!customElements.get('force-calendar')) {
+    customElements.define('force-calendar', ForceCalendar);
+}

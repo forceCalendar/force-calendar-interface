@@ -16,6 +16,7 @@ export { DOMUtils } from './utils/DOMUtils.js';
 export { StyleUtils } from './utils/StyleUtils.js';
 
 // Components
+import './components/ForceCalendar.js';
 export { ForceCalendar } from './components/ForceCalendar.js';
 
 // Views
@@ -27,7 +28,5 @@ export { AgendaView } from './components/views/AgendaView.js';
 // Auto-register main component if in browser environment
 if (typeof window !== 'undefined' && typeof customElements !== 'undefined') {
     // The ForceCalendar component self-registers
-    import('./components/ForceCalendar.js');
-
-    console.log('Force Calendar Interface loaded successfully');
+    console.log('Force Calendar Interface loading...');
 }
