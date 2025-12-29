@@ -1,14 +1,33 @@
-// forceCalendar Interface - Official Interface Layer for forceCalendar Core
-// Powered by @forcecalendar/core npm package
+/**
+ * Force Calendar Interface
+ * Main entry point for the component library
+ *
+ * A solid foundation for calendar interfaces built on @forcecalendar/core
+ */
 
-// Export all components
-export { CalendarView } from './components/CalendarView.js';
-export { MonthView } from './components/MonthView.js';
-export { CalendarFull } from './components/CalendarFull.js';
+// Core modules
+export { BaseComponent } from './core/BaseComponent.js';
+export { default as StateManager } from './core/StateManager.js';
+export { default as eventBus, EventBus } from './core/EventBus.js';
 
-// Auto-register web components
-import './components/CalendarView.js';
-import './components/MonthView.js';
-import './components/CalendarFull.js';
+// Utilities
+export { DateUtils } from './utils/DateUtils.js';
+export { DOMUtils } from './utils/DOMUtils.js';
+export { StyleUtils } from './utils/StyleUtils.js';
 
-console.log('forceCalendar Interface v0.1.0 loaded');
+// Components
+export { ForceCalendar } from './components/ForceCalendar.js';
+
+// Views
+export { MonthView } from './components/views/MonthView.js';
+export { WeekView } from './components/views/WeekView.js';
+export { DayView } from './components/views/DayView.js';
+export { AgendaView } from './components/views/AgendaView.js';
+
+// Auto-register main component if in browser environment
+if (typeof window !== 'undefined' && typeof customElements !== 'undefined') {
+    // The ForceCalendar component self-registers
+    import('./components/ForceCalendar.js');
+
+    console.log('Force Calendar Interface loaded successfully');
+}

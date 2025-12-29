@@ -572,7 +572,7 @@
                 </p>
             </div>
             <div class="calendar-container">
-                <force-calendar-view></force-calendar-view>
+                <force-calendar></force-calendar>
             </div>
         </section>
 
@@ -682,7 +682,7 @@
     &lt;/script&gt;
 &lt;/head&gt;
 &lt;body&gt;
-    &lt;force-calendar-view&gt;&lt;/force-calendar-view&gt;
+    &lt;force-calendar&gt;&lt;/force-calendar&gt;
 &lt;/body&gt;
 &lt;/html&gt;</pre>
             </div>
@@ -694,7 +694,7 @@
 function CalendarApp() {
     return (
         &lt;div&gt;
-            &lt;force-calendar-view&gt;&lt;/force-calendar-view&gt;
+            &lt;force-calendar&gt;&lt;/force-calendar&gt;
         &lt;/div&gt;
     );
 }</pre>
@@ -703,7 +703,7 @@ function CalendarApp() {
             <h3 style="margin: 2rem 0 1rem;">Vue</h3>
             <div class="code-block">
                 <pre>&lt;template&gt;
-    &lt;force-calendar-view&gt;&lt;/force-calendar-view&gt;
+    &lt;force-calendar&gt;&lt;/force-calendar&gt;
 &lt;/template&gt;
 
 &lt;script&gt;
@@ -717,7 +717,7 @@ export default {
 
             <h3 style="margin: 2rem 0 1rem;">JavaScript API</h3>
             <div class="code-block">
-                <pre>const calendar = document.querySelector('force-calendar-view');
+                <pre>const calendar = document.querySelector('force-calendar');
 
 // Add an event
 calendar.addEvent({
@@ -824,7 +824,7 @@ calendar.goToDate(new Date());</pre>
 
     <script type="module">
         // Import the calendar component
-        import '../src/components/CalendarView.js';
+        import '../src/index.js';
 
         // Copy to clipboard
         function copyToClipboard() {
