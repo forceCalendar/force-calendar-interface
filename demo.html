@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>forceCalendar UI - Enterprise Calendar Components</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f8f9fa;
+            padding: 24px;
+        }
+
+        .header {
+            max-width: 1200px;
+            margin: 0 auto 32px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 400;
+            color: #202124;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #5f6368;
+            margin-bottom: 24px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #e8f0fe;
+            color: #1a73e8;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+        }
+
+        .demo-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #dadce0;
+        }
+
+        .demo-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 8px;
+        }
+
+        .demo-description {
+            font-size: 14px;
+            color: #5f6368;
+        }
+
+        .calendar-wrapper {
+            height: 600px;
+        }
+
+        .features {
+            margin-top: 32px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .feature-card {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .feature-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 12px;
+            color: #5f6368;
+        }
+
+        .code-block {
+            margin-top: 32px;
+            padding: 16px;
+            background: #202124;
+            color: #e8eaed;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+
+        .code-comment {
+            color: #9aa0a6;
+        }
+
+        .code-string {
+            color: #8ab4f8;
+        }
+
+        .code-keyword {
+            color: #ff8a65;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>forceCalendar UI</h1>
+        <p class="subtitle">World-class calendar components powered by @forcecalendar/core</p>
+        <div>
+            <span class="badge">Web Components</span>
+            <span class="badge">Enterprise Clean</span>
+            <span class="badge">Zero Dependencies</span>
+            <span class="badge">Powered by NPM Package</span>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-header">
+            <h2 class="demo-title">Calendar View Component</h2>
+            <p class="demo-description">
+                A full-featured calendar with month, week, day, and agenda views.
+                Built with Web Components and powered by the @forcecalendar/core npm package.
+            </p>
+        </div>
+
+        <div class="calendar-wrapper">
+            <force-calendar-view></force-calendar-view>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-title">📦 NPM Package Integration</div>
+                <div class="feature-desc">
+                    Uses @forcecalendar/core from npm for all calendar logic - dates, timezones, recurrence, and event management.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">🎯 Multiple Views</div>
+                <div class="feature-desc">
+                    Switch seamlessly between Month, Week, Day, and Agenda views with smooth transitions.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">🌐 Web Components</div>
+                <div class="feature-desc">
+                    Framework-agnostic components that work everywhere - React, Vue, Angular, or vanilla JS.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">🏢 Enterprise Ready</div>
+                <div class="feature-desc">
+                    Clean, professional design optimized for data density and clarity. Perfect for business applications.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">⚡ High Performance</div>
+                <div class="feature-desc">
+                    Leverages the Core engine's spatial indexing for instant rendering even with thousands of events.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-title">🔒 Salesforce Compatible</div>
+                <div class="feature-desc">
+                    Works in Salesforce LWC and other sandboxed environments thanks to zero DOM dependency architecture.
+                </div>
+            </div>
+        </div>
+
+        <div class="code-block">
+            <span class="code-comment">// Install the packages</span><br>
+            npm install @forcecalendar/core @forcecalendar/ui<br><br>
+
+            <span class="code-comment">// Import and use in your application</span><br>
+            <span class="code-keyword">import</span> { CalendarView } <span class="code-keyword">from</span> <span class="code-string">'@forcecalendar/ui'</span>;<br><br>
+
+            <span class="code-comment">// Just add the component to your HTML</span><br>
+            &lt;force-calendar-view&gt;&lt;/force-calendar-view&gt;<br><br>
+
+            <span class="code-comment">// Or create programmatically</span><br>
+            <span class="code-keyword">const</span> calendar = <span class="code-keyword">new</span> CalendarView();<br>
+            calendar.addEvent({<br>
+            &nbsp;&nbsp;title: <span class="code-string">'Team Meeting'</span>,<br>
+            &nbsp;&nbsp;start: <span class="code-keyword">new</span> Date(<span class="code-string">'2025-01-15T10:00:00'</span>),<br>
+            &nbsp;&nbsp;end: <span class="code-keyword">new</span> Date(<span class="code-string">'2025-01-15T11:00:00'</span>)<br>
+            });
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the calendar component
+        import './src/components/CalendarView.js';
+
+        // The component is now automatically available as <force-calendar-view>
+        console.log('forceCalendar UI loaded successfully');
+    </script>
+</body>
+</html>
