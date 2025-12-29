@@ -1,6 +1,6 @@
 // Main Calendar View Component - Enterprise Clean Design
 // Uses @forcecalendar/core npm package for all calendar logic
-import { Calendar, Event, EventStore } from '@forcecalendar/core';
+import { Calendar, Event, EventStore } from '../../node_modules/@forcecalendar/core/core/index.js';
 
 export class CalendarView extends HTMLElement {
     constructor() {

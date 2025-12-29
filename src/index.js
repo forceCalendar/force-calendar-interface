@@ -1,4 +1,4 @@
-// forceCalendar UI - Enterprise Calendar Components
+// forceCalendar Interface - Official Interface Layer for forceCalendar Core
 // Powered by @forcecalendar/core npm package
 
 // Export all components
@@ -11,4 +11,4 @@ import './components/CalendarView.js';
 import './components/MonthView.js';
 import './components/CalendarFull.js';
 
-console.log('forceCalendar UI v0.1.0 loaded');
+console.log('forceCalendar Interface v0.1.0 loaded');

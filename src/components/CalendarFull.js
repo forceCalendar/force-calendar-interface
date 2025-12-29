@@ -1,5 +1,5 @@
 // Full calendar component that uses the core engine
-import { Calendar } from '@forcecalendar/core';
+import { Calendar } from '../../node_modules/@forcecalendar/core/core/index.js';
 import { MonthView } from './MonthView.js';
 
 export class CalendarFull extends HTMLElement {

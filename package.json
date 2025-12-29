@@ -1,11 +1,11 @@
 {
-  "name": "@forcecalendar/ui",
+  "name": "@forcecalendar/interface",
   "version": "0.1.0",
   "type": "module",
-  "description": "UI components for Force Calendar - framework-agnostic calendar components",
-  "main": "dist/force-calendar-ui.js",
-  "module": "dist/force-calendar-ui.esm.js",
-  "unpkg": "dist/force-calendar-ui.min.js",
+  "description": "Official interface layer for forceCalendar Core - Enterprise calendar components",
+  "main": "dist/force-calendar-interface.js",
+  "module": "dist/force-calendar-interface.esm.js",
+  "unpkg": "dist/force-calendar-interface.min.js",
   "files": [
     "dist",
     "src"
@@ -18,11 +18,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ForceCalendar/force-calendar-ui.git"
+    "url": "git+https://github.com/ForceCalendar/force-calendar-interface.git"
   },
   "keywords": [
     "calendar",
-    "ui",
+    "interface",
     "web-components",
     "salesforce",
     "force",
@@ -33,9 +33,9 @@
   "author": "ForceCalendar",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ForceCalendar/force-calendar-ui/issues"
+    "url": "https://github.com/ForceCalendar/force-calendar-interface/issues"
   },
-  "homepage": "https://github.com/ForceCalendar/force-calendar-ui#readme",
+  "homepage": "https://interface.forcecalendar.org",
   "dependencies": {
     "@forcecalendar/core": "^0.3.0"
   },
