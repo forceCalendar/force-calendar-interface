@@ -83,10 +83,13 @@ export class ForceCalendar extends BaseComponent {
     }
 
     handleStateChange(newState, oldState) {
-        // Handle state changes if needed
+        // Update local view reference if needed
         if (newState.view !== oldState?.view) {
-            this.loadView(newState.view);
+            this.currentView = newState.view;
         }
+        
+        // Re-render to update header title, active buttons, and child view
+        this.render();
     }
 
     mount() {
@@ -101,15 +104,18 @@ export class ForceCalendar extends BaseComponent {
     }
 
     getStyles() {
-        const height = this.getAttribute('height') || '600px';
+        const height = this.getAttribute('height') || '800px';
 
         return `
+            ${StyleUtils.getBaseStyles()}
             ${StyleUtils.getButtonStyles()}
             ${StyleUtils.getGridStyles()}
             ${StyleUtils.getAnimations()}
 
             :host {
                 --calendar-height: ${height};
+                display: block;
+                font-family: var(--fc-font-family);
             }
 
             .force-calendar {
@@ -117,58 +123,133 @@ export class ForceCalendar extends BaseComponent {
                 flex-direction: column;
                 height: var(--calendar-height);
                 background: var(--fc-background);
-                border: var(--fc-border-width) solid var(--fc-border-color);
-                border-radius: var(--fc-border-radius);
+                border: 1px solid var(--fc-border-color);
+                border-radius: var(--fc-border-radius-lg);
                 overflow: hidden;
+                box-shadow: var(--fc-shadow);
             }
 
             .fc-header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: var(--fc-spacing-lg);
+                padding: var(--fc-spacing-md) var(--fc-spacing-lg);
                 background: var(--fc-background);
-                border-bottom: var(--fc-border-width) solid var(--fc-border-color);
+                border-bottom: 1px solid var(--fc-border-color);
+                z-index: 10;
+                position: sticky;
+                top: 0;
             }
 
             .fc-header-left,
-            .fc-header-center,
             .fc-header-right {
                 display: flex;
                 align-items: center;
-                gap: var(--fc-spacing-sm);
+                gap: var(--fc-spacing-lg);
             }
 
             .fc-header-center {
-                flex: 1;
-                justify-content: center;
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
             }
 
             .fc-title {
-                font-size: var(--fc-font-size-xl);
-                font-weight: 600;
+                font-size: 1rem;
+                font-weight: var(--fc-font-weight-semibold);
                 color: var(--fc-text-color);
+                white-space: nowrap;
+                letter-spacing: -0.01em;
             }
 
             .fc-nav-buttons {
                 display: flex;
-                gap: var(--fc-spacing-xs);
+                gap: 0;
+                background: var(--fc-background);
+                border: 1px solid var(--fc-border-color);
+                border-radius: var(--fc-border-radius-sm);
+                overflow: hidden;
             }
 
+            .fc-nav-buttons .fc-btn {
+                border: none;
+                border-right: 1px solid var(--fc-border-color);
+                background: var(--fc-background);
+                padding: 4px;
+                height: 28px; /* Compact */
+                width: 28px;
+                border-radius: 0;
+                color: var(--fc-text-secondary);
+                transition: all var(--fc-transition-fast);
+            }
+            
+            .fc-nav-buttons .fc-btn:last-child {
+                border-right: none;
+            }
+            
+            .fc-nav-buttons .fc-btn:hover:not(:disabled) {
+                background: var(--fc-background-hover);
+                color: var(--fc-text-color);
+            }
+
+            .fc-btn-today {
+                border-radius: var(--fc-border-radius-sm);
+                padding: 4px 12px;
+                font-size: var(--fc-font-size-sm);
+                font-weight: var(--fc-font-weight-medium);
+                border: 1px solid var(--fc-border-color);
+                background: var(--fc-background);
+                color: var(--fc-text-color);
+                height: 28px;
+                transition: all var(--fc-transition-fast);
+            }
+
+            .fc-btn-today:hover {
+                background: var(--fc-background-hover);
+                border-color: var(--fc-border-color-hover);
+            }
+
+            /* View Switcher - Fused Button Group */
             .fc-view-buttons {
                 display: flex;
-                gap: var(--fc-spacing-xs);
+                border: 1px solid var(--fc-border-color);
+                border-radius: var(--fc-border-radius-sm);
+                overflow: hidden;
+            }
+
+            .fc-view-button {
+                background: var(--fc-background);
+                border: none;
+                border-right: 1px solid var(--fc-border-color);
+                color: var(--fc-text-secondary);
+                padding: 4px 12px;
+                font-size: var(--fc-font-size-sm);
+                font-weight: var(--fc-font-weight-medium);
+                transition: background-color var(--fc-transition-fast);
+                cursor: pointer;
+            }
+            
+            .fc-view-button:last-child {
+                border-right: none;
+            }
+
+            .fc-view-button:hover:not(.active) {
+                background: var(--fc-background-hover);
+                color: var(--fc-text-color);
             }
 
             .fc-view-button.active {
-                background: var(--fc-primary-color);
-                color: white;
+                background: var(--fc-background-alt); /* Subtle change */
+                color: var(--fc-text-color);
+                font-weight: var(--fc-font-weight-semibold);
+                box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); /* Pressed look */
             }
 
             .fc-body {
                 flex: 1;
-                overflow: auto;
+                overflow: hidden;
                 position: relative;
+                background: var(--fc-background);
             }
 
             .fc-view-container {
@@ -183,14 +264,16 @@ export class ForceCalendar extends BaseComponent {
                 left: 50%;
                 transform: translate(-50%, -50%);
                 display: flex;
+                flex-direction: column;
                 align-items: center;
-                gap: var(--fc-spacing-sm);
+                gap: var(--fc-spacing-md);
+                color: var(--fc-text-secondary);
             }
 
             .fc-spinner {
-                width: 20px;
-                height: 20px;
-                border: 2px solid var(--fc-border-color);
+                width: 24px;
+                height: 24px;
+                border: 3px solid var(--fc-border-color);
                 border-top-color: var(--fc-primary-color);
                 border-radius: 50%;
                 animation: fc-spin 1s linear infinite;
@@ -198,9 +281,12 @@ export class ForceCalendar extends BaseComponent {
 
             /* Error state */
             .fc-error {
-                padding: var(--fc-spacing-lg);
+                padding: var(--fc-spacing-xl);
                 text-align: center;
                 color: var(--fc-danger-color);
+                background: #FEF2F2;
+                border-radius: var(--fc-border-radius);
+                margin: var(--fc-spacing-xl);
             }
 
             /* Icons */
@@ -214,13 +300,30 @@ export class ForceCalendar extends BaseComponent {
             @media (max-width: 768px) {
                 .fc-header {
                     flex-direction: column;
-                    gap: var(--fc-spacing-md);
+                    gap: var(--fc-spacing-lg);
+                    align-items: stretch;
+                    padding: var(--fc-spacing-md);
                 }
 
                 .fc-header-left,
-                .fc-header-center,
                 .fc-header-right {
+                    justify-content: space-between;
                     width: 100%;
+                }
+
+                .fc-header-center {
+                    position: static;
+                    transform: none;
+                    text-align: center;
+                    order: -1;
+                }
+                
+                .fc-view-buttons {
+                    width: 100%;
+                }
+                
+                .fc-view-button {
+                    flex: 1;
                 }
             }
         `;
@@ -234,7 +337,7 @@ export class ForceCalendar extends BaseComponent {
             return `
                 <div class="force-calendar">
                     <div class="fc-error">
-                        <p>Error: ${error.message || 'An error occurred'}</p>
+                        <p><strong>Error:</strong> ${error.message || 'An error occurred'}</p>
                     </div>
                 </div>
             `;
@@ -246,14 +349,14 @@ export class ForceCalendar extends BaseComponent {
             <div class="force-calendar">
                 <header class="fc-header">
                     <div class="fc-header-left">
-                        <button class="fc-btn fc-btn-outline fc-btn-today" data-action="today">
+                        <button class="fc-btn fc-btn-secondary fc-btn-today" data-action="today">
                             Today
                         </button>
                         <div class="fc-nav-buttons">
-                            <button class="fc-btn fc-btn-icon fc-btn-ghost" data-action="previous" title="Previous">
+                            <button class="fc-btn fc-btn-icon" data-action="previous" title="Previous">
                                 ${this.getIcon('chevron-left')}
                             </button>
-                            <button class="fc-btn fc-btn-icon fc-btn-ghost" data-action="next" title="Next">
+                            <button class="fc-btn fc-btn-icon" data-action="next" title="Next">
                                 ${this.getIcon('chevron-right')}
                             </button>
                         </div>
@@ -265,13 +368,13 @@ export class ForceCalendar extends BaseComponent {
 
                     <div class="fc-header-right">
                         <div class="fc-view-buttons" role="group">
-                            <button class="fc-btn fc-btn-outline fc-view-button ${view === 'month' ? 'active' : ''}"
+                            <button class="fc-view-button ${view === 'month' ? 'active' : ''}"
                                     data-view="month">Month</button>
-                            <button class="fc-btn fc-btn-outline fc-view-button ${view === 'week' ? 'active' : ''}"
+                            <button class="fc-view-button ${view === 'week' ? 'active' : ''}"
                                     data-view="week">Week</button>
-                            <button class="fc-btn fc-btn-outline fc-view-button ${view === 'day' ? 'active' : ''}"
+                            <button class="fc-view-button ${view === 'day' ? 'active' : ''}"
                                     data-view="day">Day</button>
-                            <button class="fc-btn fc-btn-outline fc-view-button ${view === 'agenda' ? 'active' : ''}"
+                            <button class="fc-view-button ${view === 'agenda' ? 'active' : ''}"
                                     data-view="agenda">Agenda</button>
                         </div>
                     </div>

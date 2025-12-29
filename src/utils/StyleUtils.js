@@ -7,26 +7,27 @@ export class StyleUtils {
      * Default theme colors
      */
     static colors = {
-        primary: '#4285F4',
-        secondary: '#34A853',
-        accent: '#FBBC04',
-        danger: '#EA4335',
-        warning: '#FF9800',
-        info: '#00BCD4',
-        success: '#4CAF50',
-        light: '#F5F5F5',
-        dark: '#212121',
+        primary: '#3B82F6', // Modern Blue
+        secondary: '#64748B', // Slate
+        accent: '#F59E0B', // Amber
+        danger: '#EF4444', // Red
+        warning: '#F97316', // Orange
+        info: '#06B6D4', // Cyan
+        success: '#22C55E', // Green
+        light: '#F8FAFC',
+        dark: '#0F172A',
+        white: '#FFFFFF',
         gray: {
-            50: '#FAFAFA',
-            100: '#F5F5F5',
-            200: '#EEEEEE',
-            300: '#E0E0E0',
-            400: '#BDBDBD',
-            500: '#9E9E9E',
-            600: '#757575',
-            700: '#616161',
-            800: '#424242',
-            900: '#212121'
+            50: '#F8FAFC',
+            100: '#F1F5F9',
+            200: '#E2E8F0',
+            300: '#CBD5E1',
+            400: '#94A3B8',
+            500: '#64748B',
+            600: '#475569',
+            700: '#334155',
+            800: '#1E293B',
+            900: '#0F172A'
         }
     };
 
@@ -34,51 +35,68 @@ export class StyleUtils {
      * Common CSS variables
      */
     static cssVariables = {
-        // Colors
-        '--fc-primary-color': '#4285F4',
-        '--fc-secondary-color': '#34A853',
-        '--fc-accent-color': '#FBBC04',
-        '--fc-danger-color': '#EA4335',
-        '--fc-text-color': '#212121',
-        '--fc-text-secondary': '#757575',
-        '--fc-border-color': '#E0E0E0',
+        // "Pro" Palette - Functional & Sharp
+        '--fc-primary-color': '#2563EB', // International Blue (Focus)
+        '--fc-primary-hover': '#1D4ED8',
+        '--fc-primary-light': '#EFF6FF',
+        
+        // Neutral Scale (Slate/Gray for structure)
+        '--fc-text-color': '#111827', // Almost Black
+        '--fc-text-secondary': '#6B7280', // Cool Gray
+        '--fc-text-light': '#9CA3AF',
+        
+        '--fc-border-color': '#E5E7EB', // Crisp Light Gray
+        '--fc-border-color-hover': '#D1D5DB',
+        
         '--fc-background': '#FFFFFF',
-        '--fc-background-hover': '#F5F5F5',
-        '--fc-background-active': '#EEEEEE',
+        '--fc-background-alt': '#FAFAFA', // Very subtle off-white
+        '--fc-background-hover': '#F3F4F6',
+        '--fc-background-active': '#E5E7EB',
 
-        // Typography
-        '--fc-font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        // Semantic Colors
+        '--fc-accent-color': '#F59E0B',
+        '--fc-danger-color': '#EF4444',
+        '--fc-success-color': '#10B981',
+
+        // Typography - optimized for UI density
+        '--fc-font-family': 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         '--fc-font-size-xs': '11px',
-        '--fc-font-size-sm': '13px',
-        '--fc-font-size-base': '14px',
-        '--fc-font-size-lg': '16px',
+        '--fc-font-size-sm': '12px',
+        '--fc-font-size-base': '13px', // Slightly smaller for density
+        '--fc-font-size-lg': '15px',
         '--fc-font-size-xl': '18px',
         '--fc-font-size-2xl': '24px',
-        '--fc-line-height': '1.5',
+        '--fc-line-height': '1.4',
+        '--fc-font-weight-normal': '400',
+        '--fc-font-weight-medium': '500',
+        '--fc-font-weight-semibold': '600',
+        '--fc-font-weight-bold': '700',
 
-        // Spacing
-        '--fc-spacing-xs': '4px',
-        '--fc-spacing-sm': '8px',
-        '--fc-spacing-md': '12px',
-        '--fc-spacing-lg': '16px',
-        '--fc-spacing-xl': '24px',
-        '--fc-spacing-2xl': '32px',
+        // Spacing - Tighter
+        '--fc-spacing-xs': '2px',
+        '--fc-spacing-sm': '6px',
+        '--fc-spacing-md': '10px',
+        '--fc-spacing-lg': '14px',
+        '--fc-spacing-xl': '20px',
+        '--fc-spacing-2xl': '28px',
 
         // Border
         '--fc-border-width': '1px',
-        '--fc-border-radius': '4px',
+        '--fc-border-radius-sm': '3px', // Micro rounding
+        '--fc-border-radius': '5px',
         '--fc-border-radius-lg': '8px',
+        '--fc-border-radius-full': '9999px',
 
-        // Shadows
-        '--fc-shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.05)',
-        '--fc-shadow': '0 1px 3px rgba(0, 0, 0, 0.1)',
-        '--fc-shadow-lg': '0 4px 6px rgba(0, 0, 0, 0.1)',
-        '--fc-shadow-xl': '0 10px 25px rgba(0, 0, 0, 0.15)',
+        // Shadows - Minimal/Functional
+        '--fc-shadow-sm': '0 1px 1px rgba(0,0,0,0.05)',
+        '--fc-shadow': '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
+        '--fc-shadow-md': '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        '--fc-shadow-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
 
-        // Transitions
-        '--fc-transition-fast': '150ms ease-in-out',
-        '--fc-transition': '250ms ease-in-out',
-        '--fc-transition-slow': '350ms ease-in-out',
+        // Transitions - Snappy
+        '--fc-transition-fast': '100ms ease-out',
+        '--fc-transition': '150ms ease-out',
+        '--fc-transition-slow': '250ms ease-out',
 
         // Z-index
         '--fc-z-dropdown': '1000',
@@ -120,6 +138,8 @@ export class StyleUtils {
                 font-size: var(--fc-font-size-base);
                 line-height: var(--fc-line-height);
                 color: var(--fc-text-color);
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
             }
 
             *, *::before, *::after {
@@ -136,6 +156,7 @@ export class StyleUtils {
                 font-family: inherit;
                 font-size: inherit;
                 line-height: inherit;
+                margin: 0;
             }
 
             /* Accessibility */
@@ -156,25 +177,6 @@ export class StyleUtils {
                 outline: 2px solid var(--fc-primary-color);
                 outline-offset: 2px;
             }
-
-            /* Scrollbar styles */
-            ::-webkit-scrollbar {
-                width: 8px;
-                height: 8px;
-            }
-
-            ::-webkit-scrollbar-track {
-                background: var(--fc-background);
-            }
-
-            ::-webkit-scrollbar-thumb {
-                background: var(--fc-gray-400);
-                border-radius: 4px;
-            }
-
-            ::-webkit-scrollbar-thumb:hover {
-                background: var(--fc-gray-500);
-            }
         `;
     }
 
@@ -187,15 +189,18 @@ export class StyleUtils {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                padding: var(--fc-spacing-sm) var(--fc-spacing-lg);
-                font-size: var(--fc-font-size-base);
-                font-weight: 500;
+                padding: 8px 16px;
+                font-size: var(--fc-font-size-sm);
+                font-weight: var(--fc-font-weight-medium);
+                line-height: 1.25rem;
                 border-radius: var(--fc-border-radius);
-                border: var(--fc-border-width) solid transparent;
+                border: 1px solid transparent;
                 cursor: pointer;
                 transition: all var(--fc-transition-fast);
                 outline: none;
                 user-select: none;
+                gap: var(--fc-spacing-sm);
+                white-space: nowrap;
             }
 
             .fc-btn:disabled {
@@ -206,50 +211,63 @@ export class StyleUtils {
             .fc-btn-primary {
                 background: var(--fc-primary-color);
                 color: white;
+                box-shadow: var(--fc-shadow-sm);
             }
 
             .fc-btn-primary:hover:not(:disabled) {
-                background: ${this.darken('#4285F4', 10)};
+                background: var(--fc-primary-hover);
+                box-shadow: var(--fc-shadow);
             }
 
             .fc-btn-secondary {
-                background: var(--fc-secondary-color);
-                color: white;
+                background: white;
+                border-color: var(--fc-border-color);
+                color: var(--fc-text-color);
+                box-shadow: var(--fc-shadow-sm);
+            }
+
+            .fc-btn-secondary:hover:not(:disabled) {
+                background: var(--fc-background-hover);
+                border-color: var(--fc-border-color-hover);
             }
 
             .fc-btn-outline {
                 background: transparent;
                 border-color: var(--fc-border-color);
-                color: var(--fc-text-color);
+                color: var(--fc-text-secondary);
             }
 
             .fc-btn-outline:hover:not(:disabled) {
                 background: var(--fc-background-hover);
+                color: var(--fc-text-color);
+                border-color: var(--fc-border-color-hover);
             }
 
             .fc-btn-ghost {
                 background: transparent;
-                color: var(--fc-text-color);
+                color: var(--fc-text-secondary);
             }
 
             .fc-btn-ghost:hover:not(:disabled) {
                 background: var(--fc-background-hover);
+                color: var(--fc-text-color);
             }
 
             .fc-btn-sm {
-                padding: var(--fc-spacing-xs) var(--fc-spacing-sm);
-                font-size: var(--fc-font-size-sm);
+                padding: 6px 12px;
+                font-size: var(--fc-font-size-xs);
             }
 
             .fc-btn-lg {
-                padding: var(--fc-spacing-md) var(--fc-spacing-xl);
-                font-size: var(--fc-font-size-lg);
+                padding: 10px 20px;
+                font-size: var(--fc-font-size-base);
             }
 
             .fc-btn-icon {
-                width: 36px;
-                height: 36px;
+                width: 32px;
+                height: 32px;
                 padding: 0;
+                border-radius: var(--fc-border-radius-full);
             }
         `;
     }
@@ -312,15 +330,17 @@ export class StyleUtils {
         return `
             .fc-grid {
                 display: grid;
-                gap: var(--fc-border-width);
+                gap: 1px;
                 background: var(--fc-border-color);
-                border: var(--fc-border-width) solid var(--fc-border-color);
+                border: 1px solid var(--fc-border-color);
+                border-radius: var(--fc-border-radius);
+                overflow: hidden;
             }
 
             .fc-grid-cell {
                 background: var(--fc-background);
                 padding: var(--fc-spacing-sm);
-                min-height: 80px;
+                min-height: 100px;
                 position: relative;
             }
 
@@ -329,10 +349,14 @@ export class StyleUtils {
             }
 
             .fc-grid-header {
-                background: var(--fc-background-hover);
+                background: var(--fc-background-alt);
                 padding: var(--fc-spacing-sm);
-                font-weight: 600;
+                font-weight: var(--fc-font-weight-semibold);
                 text-align: center;
+                color: var(--fc-text-secondary);
+                font-size: var(--fc-font-size-xs);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
         `;
     }
