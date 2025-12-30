@@ -1,11 +1,5 @@
 {
-  "buildCommand": "vite build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/docs",
-      "destination": "/docs/index.html"
-    }
-  ]
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "framework": null
 }

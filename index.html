@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Force Calendar App</title>
+    <title>Force Calendar - Web Component Demo</title>
     <style>
         body, html {
             margin: 0;
@@ -36,15 +36,17 @@
 </head>
 <body>
     <div id="app">
-        <force-calendar view="month"></force-calendar>
     </div>
 
     <script type="module">
         import '/src/index.js';
-        
-        // Wait for calendar to be upgraded
+
+        // Wait for custom element to be defined, then create it dynamically
         customElements.whenDefined('force-calendar').then(() => {
-            const calendar = document.querySelector('force-calendar');
+            const app = document.getElementById('app');
+            const calendar = document.createElement('force-calendar');
+            calendar.setAttribute('view', 'month');
+            app.appendChild(calendar);
             
             // Helper to add days to today
             const addDays = (days) => {
@@ -57,7 +59,7 @@
             const events = [
                 {
                     id: '1',
-                    title: 'Project Kickoff 🚀',
+                    title: 'Project Kickoff',
                     start: new Date().setHours(10, 0),
                     end: new Date().setHours(11, 30),
                     backgroundColor: '#3B82F6' // Blue
@@ -86,14 +88,14 @@
                 },
                 {
                     id: '5',
-                    title: 'Team Lunch 🍕',
-                    start: addDays(-1).setHours(12, 30),
-                    end: addDays(-1).setHours(13, 30),
+                    title: 'Team Standup',
+                    start: addDays(-1).setHours(9, 30),
+                    end: addDays(-1).setHours(10, 0),
                     backgroundColor: '#EF4444' // Red
                 },
                 {
                     id: '6',
-                    title: 'Q3 Planning',
+                    title: 'Quarterly Planning',
                     start: addDays(5),
                     end: addDays(5),
                     allDay: true,
@@ -104,11 +106,8 @@
             // Add events with a slight delay to ensure state is ready
             setTimeout(() => {
                 events.forEach(event => calendar.addEvent(event));
-                console.log('Sample events added to Force Calendar');
             }, 500);
         });
-        
-        console.log('Force Calendar App initialized');
     </script>
 </body>
 </html>
