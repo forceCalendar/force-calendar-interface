@@ -87,9 +87,9 @@ export class BaseComponent extends HTMLElement {
     }
 
     // Event handling
-    addEventListener(element, event, handler) {
+    addListener(element, event, handler) {
         if (!element || !event || !handler) {
-            console.warn('addEventListener called with invalid parameters', { element, event, handler });
+            console.warn('addListener called with invalid parameters', { element, event, handler });
             return;
         }
         const boundHandler = handler.bind(this);

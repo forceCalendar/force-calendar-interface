@@ -283,20 +283,20 @@ export class EventForm extends BaseComponent {
         this.titleGroup = this.$('#title-group');
         this.endGroup = this.$('#end-group');
 
-        // Event Listeners
-        this.$('#close-x').addEventListener('click', () => this.close());
-        this.$('#cancel-btn').addEventListener('click', () => this.close());
-        this.$('#save-btn').addEventListener('click', () => this.save());
+        // Event Listeners using addListener for automatic cleanup
+        this.addListener(this.$('#close-x'), 'click', () => this.close());
+        this.addListener(this.$('#cancel-btn'), 'click', () => this.close());
+        this.addListener(this.$('#save-btn'), 'click', () => this.save());
 
         this.colorContainer.querySelectorAll('.color-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this._formData.color = e.target.dataset.color;
+            this.addListener(btn, 'click', (e) => {
+                this._formData.color = e.currentTarget.dataset.color;
                 this.updateColorSelection();
             });
         });
 
         // Close on backdrop click
-        this.addEventListener('click', (e) => {
+        this.addListener(this, 'click', (e) => {
             if (e.target === this) this.close();
         });
 
@@ -319,7 +319,9 @@ export class EventForm extends BaseComponent {
     }
 
     open(initialDate = new Date()) {
-        this.setAttribute('open', '');
+        if (!this.hasAttribute('open')) {
+            this.setAttribute('open', '');
+        }
         
         // Reset errors
         this.titleGroup.classList.remove('has-error');

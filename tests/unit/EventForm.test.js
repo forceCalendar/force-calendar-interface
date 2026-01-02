@@ -60,6 +60,7 @@ describe('EventForm', () => {
         form.$('#event-end').value = testData.end;
         form._formData.color = testData.color;
 
+        // Use the native method directly on the element
         form.addEventListener('save', (e) => {
             expect(e.detail.title).toBe(testData.title);
             expect(e.detail.backgroundColor).toBe(testData.color);

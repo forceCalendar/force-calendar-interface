@@ -480,17 +480,17 @@ export class MonthView extends BaseComponent {
     afterRender() {
         // Add click handlers for days
         this.$$('.month-day').forEach(dayEl => {
-            dayEl.addEventListener('click', this.handleDayClick.bind(this));
+            this.addListener(dayEl, 'click', this.handleDayClick);
         });
 
         // Add click handlers for events
         this.$$('.event-item').forEach(eventEl => {
-            eventEl.addEventListener('click', this.handleEventClick.bind(this));
+            this.addListener(eventEl, 'click', this.handleEventClick);
         });
 
         // Add click handlers for "more events"
         this.$$('.more-events').forEach(moreEl => {
-            moreEl.addEventListener('click', this.handleMoreClick.bind(this));
+            this.addListener(moreEl, 'click', this.handleMoreClick);
         });
     }
 

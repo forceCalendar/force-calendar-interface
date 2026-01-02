@@ -365,9 +365,9 @@ export class DayView extends BaseComponent {
         }
 
         this.$$('[data-event-id]').forEach(el => {
-            el.addEventListener('click', (e) => {
+            this.addListener(el, 'click', (e) => {
                 e.stopPropagation();
-                const eventId = el.dataset.eventId;
+                const eventId = e.currentTarget.dataset.eventId;
                 const event = this.stateManager.getEvents().find(ev => ev.id === eventId);
                 if (event) this.emit('event-click', { event });
             });
@@ -375,12 +375,13 @@ export class DayView extends BaseComponent {
 
         const dayCol = this.$('.day-column');
         if (dayCol) {
-            dayCol.addEventListener('click', (e) => {
+            this.addListener(dayCol, 'click', (e) => {
+                const col = e.currentTarget;
                 const container = this.$('#scroll-container');
-                const rect = dayCol.getBoundingClientRect();
+                const rect = col.getBoundingClientRect();
                 const y = e.clientY - rect.top + (container ? container.scrollTop : 0);
                 
-                const date = new Date(dayCol.dataset.date);
+                const date = new Date(col.dataset.date);
                 date.setHours(Math.floor(y / 60), Math.floor(y % 60), 0, 0);
                 
                 this.stateManager.selectDate(date);
