@@ -38,15 +38,20 @@ jobs:
       with:
         node-version: '18'
         registry-url: 'https://registry.npmjs.org'
+        cache: 'npm'
+        cache-dependency-path: interface/package-lock.json
 
     - name: Install dependencies
       run: npm ci
+      working-directory: interface
 
     - name: Build package
       run: npm run build
+      working-directory: interface
 
     - name: Run tests
       run: npm test
+      working-directory: interface
 
     - name: Configure Git
       run: |
@@ -56,6 +61,7 @@ jobs:
     - name: Determine and Bump Version
       id: version_bump
       run: |
+        cd interface
         # Use minor for master pushes as requested, or the input if manual
         BUMP_TYPE="minor"
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
@@ -69,6 +75,7 @@ jobs:
     - name: Check if version already exists
       id: check_version
       run: |
+        cd interface
         PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
         VERSION=${{ steps.version_bump.outputs.new_version }}
         if npm view "$PACKAGE_NAME@$VERSION" version > /dev/null 2>&1; then
@@ -80,13 +87,16 @@ jobs:
 
     - name: Publish to NPM
       if: steps.check_version.outputs.exists == 'false'
-      run: npm publish --access public
+      run: |
+        cd interface
+        npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     - name: Publish to GitHub Packages
       if: steps.check_version.outputs.exists == 'false'
       run: |
+        cd interface
         echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > .npmrc
         npm publish --registry=https://npm.pkg.github.com
       env:
@@ -94,6 +104,7 @@ jobs:
 
     - name: Commit and Push changes
       run: |
+        cd interface
         git add package.json package-lock.json
         git commit -m "Release ${{ steps.version_bump.outputs.new_version }} [skip ci]"
         git tag ${{ steps.version_bump.outputs.new_version }}

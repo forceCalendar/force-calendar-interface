@@ -8,6 +8,8 @@ on:
 
 jobs:
   test:
+    # Skip running on version bump commits
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
 
     steps:
@@ -20,12 +22,17 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: interface/package-lock.json
 
     - name: Install dependencies
       run: npm ci
+      working-directory: interface
 
     - name: Build package
       run: npm run build
+      working-directory: interface
 
     - name: Run tests
       run: npm test
+      working-directory: interface
