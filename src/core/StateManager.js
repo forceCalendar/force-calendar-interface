@@ -195,7 +195,7 @@ class StateManager {
     enrichViewData(viewData) {
         const selectedDateString = this.state.selectedDate?.toDateString();
 
-        // Add additional UI-specific data to view data
+        // Strategy 1: Multi-week structure (Month view)
         if (viewData.weeks) {
             viewData.weeks = viewData.weeks.map(week => ({
                 ...week,
@@ -210,7 +210,7 @@ class StateManager {
             }));
         }
 
-        // Handle day view specifically
+        // Strategy 2: Flat days structure (Week view or list view)
         if (viewData.days) {
             viewData.days = viewData.days.map(day => {
                 const dayDate = new Date(day.date);
@@ -220,6 +220,13 @@ class StateManager {
                     events: day.events || this.getEventsForDate(dayDate)
                 };
             });
+        }
+
+        // Strategy 3: Single day structure (Day view)
+        if (viewData.date && !viewData.days && !viewData.weeks) {
+            const dayDate = new Date(viewData.date);
+            viewData.isSelected = dayDate.toDateString() === selectedDateString;
+            viewData.events = viewData.events || this.getEventsForDate(dayDate);
         }
 
         return viewData;

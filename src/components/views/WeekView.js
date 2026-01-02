@@ -155,6 +155,35 @@ export class WeekView extends BaseComponent {
                 font-weight: 700;
             }
 
+            /* All Day Events Row */
+            .all-day-row {
+                display: grid;
+                grid-template-columns: 60px repeat(7, 1fr);
+                border-bottom: 1px solid var(--fc-border-color);
+                background: var(--fc-background-alt);
+                min-height: 32px;
+                flex-shrink: 0;
+            }
+
+            .all-day-label {
+                font-size: 9px;
+                color: var(--fc-text-light);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-right: 1px solid var(--fc-border-color);
+                text-transform: uppercase;
+                font-weight: 700;
+            }
+
+            .all-day-cell {
+                border-right: 1px solid var(--fc-border-color);
+                padding: 4px;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
             /* Body Section */
             .week-body {
                 flex: 1;
@@ -189,6 +218,26 @@ export class WeekView extends BaseComponent {
 
             .day-column.selected {
                 background: var(--fc-background-hover);
+            }
+
+            /* Grid Lines Layer */
+            .grid-lines {
+                position: absolute;
+                top: 0;
+                left: 60px;
+                right: 0;
+                bottom: 0;
+                pointer-events: none;
+            }
+
+            .grid-line {
+                height: 60px;
+                border-bottom: 1px solid var(--fc-border-color);
+                width: 100%;
+            }
+            
+            .grid-line:last-child {
+                border-bottom: none;
             }
 
             .event-container {
@@ -241,7 +290,20 @@ export class WeekView extends BaseComponent {
                     `).join('')}
                 </div>
 
+                <div class="all-day-row">
+                    <div class="all-day-label">All day</div>
+                    ${this.viewData.days.map(day => `
+                        <div class="all-day-cell">
+                            ${day.allDayEvents.map(e => this.renderAllDayEvent(e)).join('')}
+                        </div>
+                    `).join('')}
+                </div>
+
                 <div class="week-body" id="scroll-container">
+                    <div class="grid-lines">
+                        ${this.hours.map(() => `<div class="grid-line"></div>`).join('')}
+                    </div>
+
                     <div class="time-gutter">
                         ${this.hours.map(h => `
                             <div class="time-slot-label">
@@ -280,6 +342,19 @@ export class WeekView extends BaseComponent {
                  data-event-id="${event.id}">
                 <span class="event-title">${DOMUtils.escapeHTML(event.title)}</span>
                 <span class="event-time">${DateUtils.formatTime(start)}</span>
+            </div>
+        `;
+    }
+
+    renderAllDayEvent(event) {
+        const color = event.backgroundColor || 'var(--fc-primary-color)';
+        const textColor = StyleUtils.getContrastColor(color);
+        
+        return `
+            <div class="event-item" 
+                 style="background-color: ${color}; color: ${textColor}; font-size: 10px; padding: 2px 4px; border-radius: 2px; cursor: pointer; margin-bottom: 2px;"
+                 data-event-id="${event.id}">
+                ${DOMUtils.escapeHTML(event.title)}
             </div>
         `;
     }

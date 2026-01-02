@@ -152,6 +152,34 @@ export class DayView extends BaseComponent {
                 color: var(--fc-danger-color);
             }
 
+            /* All Day Events */
+            .all-day-row {
+                display: grid;
+                grid-template-columns: 60px 1fr;
+                border-bottom: 1px solid var(--fc-border-color);
+                background: var(--fc-background-alt);
+                min-height: 36px;
+                flex-shrink: 0;
+            }
+
+            .all-day-label {
+                font-size: 9px;
+                color: var(--fc-text-light);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-right: 1px solid var(--fc-border-color);
+                text-transform: uppercase;
+                font-weight: 700;
+            }
+
+            .all-day-cell {
+                padding: 6px 12px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
             /* Body */
             .day-body {
                 flex: 1;
@@ -187,6 +215,23 @@ export class DayView extends BaseComponent {
                 background: var(--fc-background-hover);
             }
 
+            /* Grid Lines */
+            .grid-lines {
+                position: absolute;
+                top: 0;
+                left: 60px;
+                right: 0;
+                bottom: 0;
+                pointer-events: none;
+            }
+
+            .grid-line {
+                height: 60px;
+                border-bottom: 1px solid var(--fc-border-color);
+                width: 100%;
+            }
+
+            /* Event Style */
             .event-container {
                 position: absolute;
                 left: 12px;
@@ -241,7 +286,18 @@ export class DayView extends BaseComponent {
                     </div>
                 </div>
 
+                <div class="all-day-row">
+                    <div class="all-day-label">All day</div>
+                    <div class="all-day-cell">
+                        ${day.allDayEvents.map(e => this.renderAllDayEvent(e)).join('')}
+                    </div>
+                </div>
+
                 <div class="day-body" id="scroll-container">
+                    <div class="grid-lines">
+                        ${this.hours.map(() => `<div class="grid-line"></div>`).join('')}
+                    </div>
+
                     <div class="time-gutter">
                         ${this.hours.map(h => `
                             <div class="time-slot-label">
@@ -278,6 +334,19 @@ export class DayView extends BaseComponent {
                  data-event-id="${event.id}">
                 <span class="event-title">${DOMUtils.escapeHTML(event.title)}</span>
                 <span class="event-time">${DateUtils.formatTime(start)} - ${DateUtils.formatTime(end)}</span>
+            </div>
+        `;
+    }
+
+    renderAllDayEvent(event) {
+        const color = event.backgroundColor || 'var(--fc-primary-color)';
+        const textColor = StyleUtils.getContrastColor(color);
+        
+        return `
+            <div class="event-item" 
+                 style="background-color: ${color}; color: ${textColor}; font-size: 12px; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: 500; margin-bottom: 2px;"
+                 data-event-id="${event.id}">
+                ${DOMUtils.escapeHTML(event.title)}
             </div>
         `;
     }
