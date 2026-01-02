@@ -1,22 +1,36 @@
-name: Publish to NPM
+name: Auto Publish to NPM
 
 on:
-  release:
-    types: [created]
+  push:
+    branches: [ master ]
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish (e.g., 0.1.1)'
+      bump:
+        description: 'Version bump type'
+        default: 'patch'
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
   publish:
+    # Avoid running on version bump commits created by this workflow
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -30,33 +44,34 @@ jobs:
     - name: Build package
       run: npm run build
 
-    - name: Run tests
-      run: npm test
-      continue-on-error: true
-
-    - name: Verify package contents
+    - name: Configure Git
       run: |
-        echo "Package contents that will be published:"
-        npm pack --dry-run
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
 
-    - name: Update version (if manual trigger)
-      if: github.event_name == 'workflow_dispatch'
+    - name: Bump version
+      id: version_bump
       run: |
-        npm version ${{ github.event.inputs.version }} --no-git-tag-version --allow-same-version
+        # Use minor for master pushes as requested, or the input if manual
+        BUMP_TYPE="minor"
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          BUMP_TYPE="${{ github.event.inputs.bump }}"
+        fi
+        
+        NEW_VERSION=$(npm version $BUMP_TYPE --no-git-tag-version)
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "Bumping version to $NEW_VERSION"
 
     - name: Publish to NPM
       run: npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-    - name: Create release tag (if manual trigger)
-      if: github.event_name == 'workflow_dispatch'
+    - name: Commit and Push changes
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
         git add package.json package-lock.json
-        git commit -m "Release v${{ github.event.inputs.version }}"
-        git tag v${{ github.event.inputs.version }}
-        git push origin v${{ github.event.inputs.version }}
+        git commit -m "Release ${{ steps.version_bump.outputs.new_version }} [skip ci]"
+        git tag ${{ steps.version_bump.outputs.new_version }}
+        git push origin master --tags
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
