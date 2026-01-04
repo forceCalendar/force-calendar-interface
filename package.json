@@ -1,11 +1,18 @@
 {
   "name": "@forcecalendar/interface",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "Official interface layer for forceCalendar Core - Enterprise calendar components",
-  "main": "dist/force-calendar-interface.js",
+  "main": "dist/force-calendar-interface.umd.js",
   "module": "dist/force-calendar-interface.esm.js",
-  "unpkg": "dist/force-calendar-interface.min.js",
+  "exports": {
+    ".": {
+      "import": "./dist/force-calendar-interface.esm.js",
+      "require": "./dist/force-calendar-interface.umd.js"
+    }
+  },
+  "unpkg": "dist/force-calendar-interface.umd.js",
+  "jsdelivr": "dist/force-calendar-interface.umd.js",
   "files": [
     "dist",
     "src"

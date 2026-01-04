@@ -1,10 +1,10 @@
-# forceCalendar UI
+# forceCalendar Interface
 
-World-class calendar UI components powered by [@forcecalendar/core](https://www.npmjs.com/package/@forcecalendar/core).
+Enterprise-grade calendar UI components powered by [@forcecalendar/core](https://www.npmjs.com/package/@forcecalendar/core).
 
 ## Overview
 
-forceCalendar UI provides enterprise-grade calendar components built as Web Components, making them framework-agnostic and compatible with any JavaScript environment - including sandboxed environments like Salesforce Lightning Web Components.
+forceCalendar Interface provides production-ready calendar components built as Web Components, making them framework-agnostic and compatible with any JavaScript environment - including sandboxed environments like Salesforce Lightning Web Components.
 
 ## Features
 
@@ -18,41 +18,55 @@ forceCalendar UI provides enterprise-grade calendar components built as Web Comp
 ## Installation
 
 ```bash
-npm install @forcecalendar/core @forcecalendar/ui
+npm install @forcecalendar/interface
 ```
 
 ## Quick Start
 
-### HTML
+### HTML (via CDN)
 ```html
 <!DOCTYPE html>
 <html>
 <head>
     <script type="module">
-        import '@forcecalendar/ui';
+        import 'https://unpkg.com/@forcecalendar/interface@latest';
     </script>
 </head>
 <body>
-    <force-calendar-view></force-calendar-view>
+    <force-calendar view="month"></force-calendar>
 </body>
 </html>
 ```
 
-### JavaScript
+### JavaScript (ES Modules)
 ```javascript
-import { CalendarView } from '@forcecalendar/ui';
+import '@forcecalendar/interface';
 
 // The component auto-registers as a web component
-const calendar = document.createElement('force-calendar-view');
+const calendar = document.createElement('force-calendar');
+calendar.setAttribute('view', 'month');
 document.body.appendChild(calendar);
+```
+
+### JavaScript (CommonJS/Node.js)
+```javascript
+require('@forcecalendar/interface');
 ```
 
 ## Demo
 
 ```bash
 npm install
+npm run build
 npx http-server . -p 8080
 # Open http://localhost:8080/demo.html
+```
+
+Or for development:
+
+```bash
+npm run dev
+# Opens development server with hot reload
 ```
 
 ## License
