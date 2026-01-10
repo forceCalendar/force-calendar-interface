@@ -67,11 +67,25 @@ jobs:
           npm version "$NPM_VERSION" --no-git-tag-version --allow-same-version
         fi
 
-        # Use minor for master pushes, or the input if manual
-        BUMP_TYPE="minor"
+        # Determine bump type from commit message or manual input
+        BUMP_TYPE="patch"  # Default to patch for small changes
+
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           BUMP_TYPE="${{ github.event.inputs.bump }}"
+        else
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+
+          # Check for explicit version keywords in commit message
+          if echo "$COMMIT_MSG" | grep -qiE '\[major\]|BREAKING CHANGE|!:'; then
+            BUMP_TYPE="major"
+          elif echo "$COMMIT_MSG" | grep -qiE '\[minor\]|feat:|feature:'; then
+            BUMP_TYPE="minor"
+          elif echo "$COMMIT_MSG" | grep -qiE '\[patch\]|fix:|bugfix:|hotfix:'; then
+            BUMP_TYPE="patch"
+          fi
         fi
+
+        echo "Bump type: $BUMP_TYPE"
 
         NEW_VERSION=$(npm version $BUMP_TYPE --no-git-tag-version)
         echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
