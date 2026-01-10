@@ -4,3 +4,6 @@ dist
 .DS_Store
 .vscode
 *.local
+
+# Local development docs (remove when ready to share)
+CONTRIBUTING.md
