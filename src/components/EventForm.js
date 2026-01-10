@@ -300,7 +300,10 @@ export class EventForm extends BaseComponent {
             if (e.target === this) this.close();
         });
 
-        // Close on Escape key
+        // Close on Escape key - remove old listener before adding new one
+        if (this._handleKeyDown) {
+            window.removeEventListener('keydown', this._handleKeyDown);
+        }
         this._handleKeyDown = (e) => {
             if (e.key === 'Escape' && this.hasAttribute('open')) {
                 this.close();
