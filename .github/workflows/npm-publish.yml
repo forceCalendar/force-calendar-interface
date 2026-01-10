@@ -58,12 +58,21 @@ jobs:
     - name: Determine and Bump Version
       id: version_bump
       run: |
-        # Use minor for master pushes as requested, or the input if manual
+        PACKAGE_NAME=$(node -e "console.log(require('./package.json').name)")
+
+        # Get latest version from NPM (source of truth), fallback to local
+        NPM_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "")
+        if [ -n "$NPM_VERSION" ]; then
+          echo "Syncing to NPM version: $NPM_VERSION"
+          npm version "$NPM_VERSION" --no-git-tag-version --allow-same-version
+        fi
+
+        # Use minor for master pushes, or the input if manual
         BUMP_TYPE="minor"
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           BUMP_TYPE="${{ github.event.inputs.bump }}"
         fi
-        
+
         NEW_VERSION=$(npm version $BUMP_TYPE --no-git-tag-version)
         echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
         echo "Calculated new version: $NEW_VERSION"
