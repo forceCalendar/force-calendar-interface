@@ -126,6 +126,9 @@ export class BaseComponent extends HTMLElement {
 
     // Template rendering
     render() {
+        // Clean up existing listeners before replacing DOM
+        this.cleanup();
+
         const styles = `
             <style>
                 ${this.getBaseStyles()}
