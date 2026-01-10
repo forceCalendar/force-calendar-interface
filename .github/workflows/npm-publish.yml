@@ -95,12 +95,18 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Commit and Push changes
+      if: steps.check_version.outputs.exists == 'false'
       run: |
         git add package.json package-lock.json
         git commit -m "Release ${{ steps.version_bump.outputs.new_version }} [skip ci]"
-        git tag ${{ steps.version_bump.outputs.new_version }}
+
+        # Only create tag if it doesn't already exist
+        if ! git rev-parse "${{ steps.version_bump.outputs.new_version }}" >/dev/null 2>&1; then
+          git tag ${{ steps.version_bump.outputs.new_version }}
+        fi
+
         git push origin master --tags
-        
+
         # Create an official GitHub Release (only if it doesn't exist)
         if ! gh release view ${{ steps.version_bump.outputs.new_version }} > /dev/null 2>&1; then
           gh release create ${{ steps.version_bump.outputs.new_version }} \
