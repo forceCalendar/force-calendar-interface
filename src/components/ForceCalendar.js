@@ -17,14 +17,14 @@ import { DayView } from './views/DayView.js';
 import { EventForm } from './EventForm.js'; // Import EventForm
 
 // Register view components
-if (!customElements.get('fc-calendar-month')) {
-    customElements.define('fc-calendar-month', MonthView);
+if (!customElements.get('forcecal-month')) {
+    customElements.define('forcecal-month', MonthView);
 }
-if (!customElements.get('fc-calendar-week')) {
-    customElements.define('fc-calendar-week', WeekView);
+if (!customElements.get('forcecal-week')) {
+    customElements.define('forcecal-week', WeekView);
 }
-if (!customElements.get('fc-calendar-day')) {
-    customElements.define('fc-calendar-day', DayView);
+if (!customElements.get('forcecal-day')) {
+    customElements.define('forcecal-day', DayView);
 }
 // EventForm is self-registering in its file
 
@@ -273,9 +273,9 @@ export class ForceCalendar extends BaseComponent {
             }
 
             /* Ensure view components have proper dimensions */
-            fc-calendar-month,
-            fc-calendar-week,
-            fc-calendar-day {
+            forcecal-month,
+            forcecal-week,
+            forcecal-day {
                 display: block;
                 width: 100%;
                 height: 100%;
@@ -415,7 +415,7 @@ export class ForceCalendar extends BaseComponent {
                     `}
                 </div>
                 
-                <fc-calendar-event-form id="event-modal"></fc-calendar-event-form>
+                <forcecal-event-form id="event-modal"></forcecal-event-form>
             </div>
         `;
     }
@@ -425,7 +425,7 @@ export class ForceCalendar extends BaseComponent {
             return '<div>Loading view...</div>';
         }
 
-        const tagName = `fc-calendar-${this.currentView}`;
+        const tagName = `forcecal-${this.currentView}`;
         return `<${tagName} id="calendar-view"></${tagName}>`;
     }
 
@@ -585,6 +585,6 @@ export class ForceCalendar extends BaseComponent {
 }
 
 // Register component
-if (!customElements.get('fc-calendar')) {
-    customElements.define('fc-calendar', ForceCalendar);
+if (!customElements.get('forcecal-main')) {
+    customElements.define('forcecal-main', ForceCalendar);
 }
