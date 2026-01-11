@@ -272,10 +272,15 @@ export class ForceCalendar extends BaseComponent {
                 flex-direction: column;
             }
 
-            /* Ensure view components have proper dimensions */
-            forcecal-month,
-            forcecal-week,
-            forcecal-day {
+            /* Ensure view container has proper dimensions */
+            #calendar-view-container {
+                display: block;
+                width: 100%;
+                height: 100%;
+                flex: 1;
+            }
+
+            #calendar-view-container > * {
                 display: block;
                 width: 100%;
                 height: 100%;
@@ -421,50 +426,41 @@ export class ForceCalendar extends BaseComponent {
     }
 
     renderView() {
-        if (!this.currentView) {
-            return '<div>Loading view...</div>';
-        }
-
-        const tagName = `forcecal-${this.currentView}`;
-        return `<${tagName} id="calendar-view"></${tagName}>`;
+        // Use a plain div container - we'll manually instantiate view classes
+        // This bypasses Locker Service's custom element restrictions
+        return '<div id="calendar-view-container"></div>';
     }
 
     afterRender() {
-        // Set up view component using global registry for Locker Service compatibility
-        const viewElement = this.$('#calendar-view');
-        console.log('[ForceCalendar] afterRender - viewElement:', viewElement);
-        console.log('[ForceCalendar] afterRender - stateManager:', !!this.stateManager);
+        // Manually instantiate and mount view component (bypasses Locker Service)
+        const container = this.$('#calendar-view-container');
+        console.log('[ForceCalendar] afterRender - container:', !!container, 'stateManager:', !!this.stateManager, 'currentView:', this.currentView);
 
-        if (viewElement && this.stateManager) {
-            // Debug: check what's available on the viewElement
-            console.log('[ForceCalendar] viewElement.constructor.name:', viewElement.constructor?.name);
-            console.log('[ForceCalendar] viewElement methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(viewElement)));
-
-            // Try to force custom element upgrade (Locker Service may prevent auto-upgrade)
-            if (typeof customElements !== 'undefined' && customElements.upgrade) {
-                console.log('[ForceCalendar] Forcing custom element upgrade');
-                customElements.upgrade(viewElement);
+        if (container && this.stateManager && this.currentView) {
+            // Clean up previous view if exists
+            if (this._currentViewInstance) {
+                if (this._currentViewInstance.cleanup) {
+                    this._currentViewInstance.cleanup();
+                }
             }
 
-            // Store stateManager in global registry (bypasses Locker Service proxy issues)
-            const registryId = this._registryId || (this._registryId = 'fc-' + Math.random().toString(36).substr(2, 9));
-            window.__forceCalendarRegistry = window.__forceCalendarRegistry || {};
-            window.__forceCalendarRegistry[registryId] = this.stateManager;
+            console.log('[ForceCalendar] Creating view for:', this.currentView);
 
-            // Pass registry ID via attribute (attributes work through Locker Service)
-            viewElement.setAttribute('data-state-registry', registryId);
-            console.log('[ForceCalendar] Set registry ID:', registryId);
+            // Create a simple view renderer that doesn't use custom elements
+            const viewRenderer = this._createViewRenderer(this.currentView);
+            if (viewRenderer) {
+                this._currentViewInstance = viewRenderer;
+                viewRenderer.stateManager = this.stateManager;
+                viewRenderer.container = container;
+                viewRenderer.render();
 
-            // Also try direct initialization if the element has the method
-            if (viewElement._checkRegistry) {
-                console.log('[ForceCalendar] Calling _checkRegistry directly');
-                viewElement._checkRegistry();
-            } else if (viewElement.setStateManager) {
-                console.log('[ForceCalendar] Calling setStateManager directly');
-                viewElement.setStateManager(this.stateManager);
+                // Subscribe to state changes
+                this.stateManager.subscribe((newState, oldState) => {
+                    if (viewRenderer && viewRenderer.render) {
+                        viewRenderer.render();
+                    }
+                });
             }
-        } else {
-            console.log('[ForceCalendar] Could not set stateManager - viewElement:', !!viewElement, 'stateManager:', !!this.stateManager);
         }
 
         // Add event listeners for buttons using tracked addListener
@@ -508,6 +504,138 @@ export class ForceCalendar extends BaseComponent {
                 });
             });
         }
+    }
+
+    _createViewRenderer(viewName) {
+        // Create a simple view renderer that bypasses custom elements
+        // This is necessary for Salesforce Locker Service compatibility
+        const self = this;
+
+        return {
+            stateManager: null,
+            container: null,
+            _listeners: [],
+
+            cleanup() {
+                this._listeners.forEach(({ element, event, handler }) => {
+                    element.removeEventListener(event, handler);
+                });
+                this._listeners = [];
+            },
+
+            addListener(element, event, handler) {
+                element.addEventListener(event, handler);
+                this._listeners.push({ element, event, handler });
+            },
+
+            render() {
+                if (!this.container || !this.stateManager) return;
+
+                const viewData = this.stateManager.getViewData();
+                if (!viewData || !viewData.weeks) {
+                    this.container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading calendar...</div>';
+                    return;
+                }
+
+                this.cleanup();
+                const config = this.stateManager.getState().config;
+                const html = this._renderMonthView(viewData, config);
+                this.container.innerHTML = html;
+                this._attachEventHandlers();
+            },
+
+            _renderMonthView(viewData, config) {
+                const weekStartsOn = config.weekStartsOn || 0;
+                const dayNames = [];
+                for (let i = 0; i < 7; i++) {
+                    const dayIndex = (weekStartsOn + i) % 7;
+                    dayNames.push(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex]);
+                }
+
+                let html = `
+                    <style>
+                        .fc-month-view { display: flex; flex-direction: column; height: 100%; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; }
+                        .fc-month-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #fafafa; border-bottom: 1px solid #e5e7eb; }
+                        .fc-month-header-cell { padding: 8px; text-align: left; font-weight: 600; font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+                        .fc-month-body { flex: 1; display: flex; flex-direction: column; }
+                        .fc-month-week { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid #e5e7eb; }
+                        .fc-month-week:last-child { border-bottom: none; }
+                        .fc-month-day { background: #fff; padding: 4px; position: relative; border-right: 1px solid #e5e7eb; min-height: 80px; cursor: pointer; }
+                        .fc-month-day:last-child { border-right: none; }
+                        .fc-month-day:hover { background: #f9fafb; }
+                        .fc-month-day.other-month { background: #f9fafb; }
+                        .fc-month-day.other-month .fc-day-number { color: #d1d5db; }
+                        .fc-month-day.today .fc-day-number { background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+                        .fc-day-number { font-size: 12px; font-weight: 500; color: #111827; padding: 4px; }
+                        .fc-day-events { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+                        .fc-event { font-size: 11px; padding: 2px 6px; border-radius: 2px; background: #2563eb; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+                        .fc-event:hover { opacity: 0.9; }
+                        .fc-more-events { font-size: 10px; color: #6b7280; padding: 2px 4px; cursor: pointer; }
+                        .fc-more-events:hover { color: #111827; text-decoration: underline; }
+                    </style>
+                    <div class="fc-month-view">
+                        <div class="fc-month-header">
+                            ${dayNames.map(d => `<div class="fc-month-header-cell">${d}</div>`).join('')}
+                        </div>
+                        <div class="fc-month-body">
+                `;
+
+                viewData.weeks.forEach(week => {
+                    html += '<div class="fc-month-week">';
+                    week.days.forEach(day => {
+                        const classes = ['fc-month-day'];
+                        if (!day.isCurrentMonth) classes.push('other-month');
+                        if (day.isToday) classes.push('today');
+
+                        const events = day.events || [];
+                        const visibleEvents = events.slice(0, 3);
+                        const moreCount = events.length - 3;
+
+                        html += `
+                            <div class="${classes.join(' ')}" data-date="${day.date}">
+                                <div class="fc-day-number">${day.dayOfMonth}</div>
+                                <div class="fc-day-events">
+                                    ${visibleEvents.map(evt => `
+                                        <div class="fc-event" data-event-id="${evt.id}" style="background-color: ${evt.backgroundColor || '#2563eb'}">
+                                            ${evt.title}
+                                        </div>
+                                    `).join('')}
+                                    ${moreCount > 0 ? `<div class="fc-more-events">+${moreCount} more</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                });
+
+                html += '</div></div>';
+                return html;
+            },
+
+            _attachEventHandlers() {
+                const stateManager = this.stateManager;
+
+                // Day click handlers
+                this.container.querySelectorAll('.fc-month-day').forEach(dayEl => {
+                    this.addListener(dayEl, 'click', (e) => {
+                        const date = new Date(dayEl.dataset.date);
+                        stateManager.selectDate(date);
+                    });
+                });
+
+                // Event click handlers
+                this.container.querySelectorAll('.fc-event').forEach(eventEl => {
+                    this.addListener(eventEl, 'click', (e) => {
+                        e.stopPropagation();
+                        const eventId = eventEl.dataset.eventId;
+                        const event = stateManager.getEvents().find(ev => ev.id === eventId);
+                        if (event) {
+                            stateManager.selectEvent(event);
+                        }
+                    });
+                });
+            }
+        };
     }
 
     handleNavigation(event) {
