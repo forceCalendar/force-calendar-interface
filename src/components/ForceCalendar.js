@@ -349,10 +349,146 @@ export class ForceCalendar extends BaseComponent {
                     justify-content: space-between;
                     width: 100%;
                 }
-                
+
                 #create-event-btn {
                     flex: 1;
                 }
+            }
+
+            /* Month View Styles (inline rendering for Locker Service compatibility) */
+            .fc-month-view {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                background: var(--fc-background);
+            }
+
+            .fc-month-header {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                border-bottom: 1px solid var(--fc-border-color);
+                background: var(--fc-background-alt);
+            }
+
+            .fc-month-header-cell {
+                padding: 12px 8px;
+                text-align: center;
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--fc-text-light);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .fc-month-body {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+            }
+
+            .fc-month-week {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                flex: 1;
+                min-height: 100px;
+            }
+
+            .fc-month-day {
+                background: var(--fc-background);
+                border-right: 1px solid var(--fc-border-color);
+                border-bottom: 1px solid var(--fc-border-color);
+                padding: 4px;
+                min-height: 80px;
+                cursor: pointer;
+                transition: background-color 0.15s ease;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .fc-month-day:hover {
+                background: var(--fc-background-hover);
+            }
+
+            .fc-month-day:last-child {
+                border-right: none;
+            }
+
+            .fc-month-day.other-month {
+                background: var(--fc-background-alt);
+            }
+
+            .fc-month-day.other-month .fc-day-number {
+                color: var(--fc-text-light);
+            }
+
+            .fc-month-day.today {
+                background: rgba(37, 99, 235, 0.05);
+            }
+
+            .fc-month-day.today .fc-day-number {
+                background: var(--fc-primary-color);
+                color: white;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .fc-day-number {
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--fc-text-color);
+                padding: 2px 4px;
+                margin-bottom: 4px;
+            }
+
+            .fc-day-events {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                flex: 1;
+                overflow: hidden;
+            }
+
+            .fc-event {
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 3px;
+                color: white;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                cursor: pointer;
+                transition: transform 0.1s ease;
+            }
+
+            .fc-event:hover {
+                transform: scale(1.02);
+            }
+
+            .fc-more-events {
+                font-size: 10px;
+                color: var(--fc-text-light);
+                padding: 2px 4px;
+                font-weight: 500;
+            }
+
+            /* Week View Styles (inline rendering for Locker Service compatibility) */
+            .fc-week-view {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                background: var(--fc-background);
+            }
+
+            /* Day View Styles (inline rendering for Locker Service compatibility) */
+            .fc-day-view {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                background: var(--fc-background);
             }
         `;
     }
@@ -436,30 +572,53 @@ export class ForceCalendar extends BaseComponent {
         const container = this.$('#calendar-view-container');
         console.log('[ForceCalendar] afterRender - container:', !!container, 'stateManager:', !!this.stateManager, 'currentView:', this.currentView);
 
+        // Only create view once per view type change
         if (container && this.stateManager && this.currentView) {
+            // Check if container actually has content (render() clears shadow DOM)
+            if (this._currentViewInstance && this._currentViewInstance._viewType === this.currentView && container.children.length > 0) {
+                console.log('[ForceCalendar] View already exists with content, skipping creation');
+                return;
+            }
+
             // Clean up previous view if exists
             if (this._currentViewInstance) {
                 if (this._currentViewInstance.cleanup) {
                     this._currentViewInstance.cleanup();
+                }
+                if (this._viewUnsubscribe) {
+                    this._viewUnsubscribe();
+                    this._viewUnsubscribe = null;
                 }
             }
 
             console.log('[ForceCalendar] Creating view for:', this.currentView);
 
             // Create a simple view renderer that doesn't use custom elements
-            const viewRenderer = this._createViewRenderer(this.currentView);
-            if (viewRenderer) {
-                this._currentViewInstance = viewRenderer;
-                viewRenderer.stateManager = this.stateManager;
-                viewRenderer.container = container;
-                viewRenderer.render();
+            try {
+                const viewRenderer = this._createViewRenderer(this.currentView);
+                if (viewRenderer) {
+                    viewRenderer._viewType = this.currentView;
+                    this._currentViewInstance = viewRenderer;
+                    viewRenderer.stateManager = this.stateManager;
+                    viewRenderer.container = container;
 
-                // Subscribe to state changes
-                this.stateManager.subscribe((newState, oldState) => {
-                    if (viewRenderer && viewRenderer.render) {
-                        viewRenderer.render();
-                    }
-                });
+                    console.log('[ForceCalendar] Calling viewRenderer.render()');
+                    viewRenderer.render();
+                    console.log('[ForceCalendar] viewRenderer.render() completed');
+
+                    // Subscribe to state changes (store unsubscribe function)
+                    this._viewUnsubscribe = this.stateManager.subscribe((newState, oldState) => {
+                        // Only re-render on data changes, not view changes
+                        if (newState.events !== oldState?.events ||
+                            newState.currentDate !== oldState?.currentDate) {
+                            if (viewRenderer && viewRenderer.render) {
+                                viewRenderer.render();
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('[ForceCalendar] Error creating/rendering view:', err);
             }
         }
 
@@ -529,18 +688,25 @@ export class ForceCalendar extends BaseComponent {
             },
 
             render() {
+                console.log('[ViewRenderer] render called, container:', !!this.container, 'stateManager:', !!this.stateManager);
                 if (!this.container || !this.stateManager) return;
 
                 const viewData = this.stateManager.getViewData();
+                console.log('[ViewRenderer] viewData:', viewData);
+                console.log('[ViewRenderer] viewData.weeks:', viewData?.weeks);
+
                 if (!viewData || !viewData.weeks) {
-                    this.container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading calendar...</div>';
+                    this.container.innerHTML = '<div style="padding: 20px; text-align: center; background: #fee; color: #c00;">No viewData.weeks available. viewData keys: ' + (viewData ? Object.keys(viewData).join(', ') : 'null') + '</div>';
                     return;
                 }
 
                 this.cleanup();
                 const config = this.stateManager.getState().config;
+                console.log('[ViewRenderer] Rendering month view with', viewData.weeks.length, 'weeks');
                 const html = this._renderMonthView(viewData, config);
+                console.log('[ViewRenderer] HTML length:', html.length);
                 this.container.innerHTML = html;
+                console.log('[ViewRenderer] innerHTML set, container children:', this.container.children.length);
                 this._attachEventHandlers();
             },
 
@@ -552,55 +718,39 @@ export class ForceCalendar extends BaseComponent {
                     dayNames.push(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex]);
                 }
 
+                // Using inline styles for Locker Service compatibility
                 let html = `
-                    <style>
-                        .fc-month-view { display: flex; flex-direction: column; height: 100%; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; }
-                        .fc-month-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #fafafa; border-bottom: 1px solid #e5e7eb; }
-                        .fc-month-header-cell { padding: 8px; text-align: left; font-weight: 600; font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-                        .fc-month-body { flex: 1; display: flex; flex-direction: column; }
-                        .fc-month-week { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid #e5e7eb; }
-                        .fc-month-week:last-child { border-bottom: none; }
-                        .fc-month-day { background: #fff; padding: 4px; position: relative; border-right: 1px solid #e5e7eb; min-height: 80px; cursor: pointer; }
-                        .fc-month-day:last-child { border-right: none; }
-                        .fc-month-day:hover { background: #f9fafb; }
-                        .fc-month-day.other-month { background: #f9fafb; }
-                        .fc-month-day.other-month .fc-day-number { color: #d1d5db; }
-                        .fc-month-day.today .fc-day-number { background: #ef4444; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-                        .fc-day-number { font-size: 12px; font-weight: 500; color: #111827; padding: 4px; }
-                        .fc-day-events { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
-                        .fc-event { font-size: 11px; padding: 2px 6px; border-radius: 2px; background: #2563eb; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-                        .fc-event:hover { opacity: 0.9; }
-                        .fc-more-events { font-size: 10px; color: #6b7280; padding: 2px 4px; cursor: pointer; }
-                        .fc-more-events:hover { color: #111827; text-decoration: underline; }
-                    </style>
-                    <div class="fc-month-view">
-                        <div class="fc-month-header">
-                            ${dayNames.map(d => `<div class="fc-month-header-cell">${d}</div>`).join('')}
+                    <div class="fc-month-view" style="display: flex; flex-direction: column; height: 100%; min-height: 400px; background: #fff; border: 1px solid #e5e7eb;">
+                        <div class="fc-month-header" style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid #e5e7eb; background: #f9fafb;">
+                            ${dayNames.map(d => `<div class="fc-month-header-cell" style="padding: 12px 8px; text-align: center; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase;">${d}</div>`).join('')}
                         </div>
-                        <div class="fc-month-body">
+                        <div class="fc-month-body" style="display: flex; flex-direction: column; flex: 1;">
                 `;
 
                 viewData.weeks.forEach(week => {
-                    html += '<div class="fc-month-week">';
+                    html += '<div class="fc-month-week" style="display: grid; grid-template-columns: repeat(7, 1fr); flex: 1; min-height: 80px;">';
                     week.days.forEach(day => {
-                        const classes = ['fc-month-day'];
-                        if (!day.isCurrentMonth) classes.push('other-month');
-                        if (day.isToday) classes.push('today');
+                        const isOtherMonth = !day.isCurrentMonth;
+                        const isToday = day.isToday;
+
+                        const dayBg = isOtherMonth ? '#f3f4f6' : '#fff';
+                        const dayNumColor = isOtherMonth ? '#9ca3af' : '#111827';
+                        const todayStyle = isToday ? 'background: #2563eb; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;' : '';
 
                         const events = day.events || [];
                         const visibleEvents = events.slice(0, 3);
                         const moreCount = events.length - 3;
 
                         html += `
-                            <div class="${classes.join(' ')}" data-date="${day.date}">
-                                <div class="fc-day-number">${day.dayOfMonth}</div>
-                                <div class="fc-day-events">
+                            <div class="fc-month-day" data-date="${day.date}" style="background: ${dayBg}; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; padding: 4px; min-height: 80px; cursor: pointer;">
+                                <div class="fc-day-number" style="font-size: 13px; font-weight: 500; color: ${dayNumColor}; padding: 2px 4px; margin-bottom: 4px; ${todayStyle}">${day.dayOfMonth}</div>
+                                <div class="fc-day-events" style="display: flex; flex-direction: column; gap: 2px;">
                                     ${visibleEvents.map(evt => `
-                                        <div class="fc-event" data-event-id="${evt.id}" style="background-color: ${evt.backgroundColor || '#2563eb'}">
+                                        <div class="fc-event" data-event-id="${evt.id}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 11px; padding: 2px 6px; border-radius: 3px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">
                                             ${evt.title}
                                         </div>
                                     `).join('')}
-                                    ${moreCount > 0 ? `<div class="fc-more-events">+${moreCount} more</div>` : ''}
+                                    ${moreCount > 0 ? `<div class="fc-more-events" style="font-size: 10px; color: #6b7280; padding: 2px 4px; font-weight: 500;">+${moreCount} more</div>` : ''}
                                 </div>
                             </div>
                         `;
