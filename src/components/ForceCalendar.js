@@ -436,6 +436,16 @@ export class ForceCalendar extends BaseComponent {
         console.log('[ForceCalendar] afterRender - stateManager:', !!this.stateManager);
 
         if (viewElement && this.stateManager) {
+            // Debug: check what's available on the viewElement
+            console.log('[ForceCalendar] viewElement.constructor.name:', viewElement.constructor?.name);
+            console.log('[ForceCalendar] viewElement methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(viewElement)));
+
+            // Try to force custom element upgrade (Locker Service may prevent auto-upgrade)
+            if (typeof customElements !== 'undefined' && customElements.upgrade) {
+                console.log('[ForceCalendar] Forcing custom element upgrade');
+                customElements.upgrade(viewElement);
+            }
+
             // Store stateManager in global registry (bypasses Locker Service proxy issues)
             const registryId = this._registryId || (this._registryId = 'fc-' + Math.random().toString(36).substr(2, 9));
             window.__forceCalendarRegistry = window.__forceCalendarRegistry || {};
@@ -444,6 +454,15 @@ export class ForceCalendar extends BaseComponent {
             // Pass registry ID via attribute (attributes work through Locker Service)
             viewElement.setAttribute('data-state-registry', registryId);
             console.log('[ForceCalendar] Set registry ID:', registryId);
+
+            // Also try direct initialization if the element has the method
+            if (viewElement._checkRegistry) {
+                console.log('[ForceCalendar] Calling _checkRegistry directly');
+                viewElement._checkRegistry();
+            } else if (viewElement.setStateManager) {
+                console.log('[ForceCalendar] Calling setStateManager directly');
+                viewElement.setStateManager(this.stateManager);
+            }
         } else {
             console.log('[ForceCalendar] Could not set stateManager - viewElement:', !!viewElement, 'stateManager:', !!this.stateManager);
         }
