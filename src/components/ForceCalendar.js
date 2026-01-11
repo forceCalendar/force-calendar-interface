@@ -430,20 +430,20 @@ export class ForceCalendar extends BaseComponent {
     }
 
     afterRender() {
-        // Set up view component
+        // Set up view component using global registry for Locker Service compatibility
         const viewElement = this.$('#calendar-view');
         console.log('[ForceCalendar] afterRender - viewElement:', viewElement);
         console.log('[ForceCalendar] afterRender - stateManager:', !!this.stateManager);
+
         if (viewElement && this.stateManager) {
-            // Use method call for Salesforce Locker Service compatibility
-            // Property setters may not work through Locker Service proxies
-            if (typeof viewElement.setStateManager === 'function') {
-                console.log('[ForceCalendar] Using setStateManager method');
-                viewElement.setStateManager(this.stateManager);
-            } else {
-                console.log('[ForceCalendar] Using stateManager property setter');
-                viewElement.stateManager = this.stateManager;
-            }
+            // Store stateManager in global registry (bypasses Locker Service proxy issues)
+            const registryId = this._registryId || (this._registryId = 'fc-' + Math.random().toString(36).substr(2, 9));
+            window.__forceCalendarRegistry = window.__forceCalendarRegistry || {};
+            window.__forceCalendarRegistry[registryId] = this.stateManager;
+
+            // Pass registry ID via attribute (attributes work through Locker Service)
+            viewElement.setAttribute('data-state-registry', registryId);
+            console.log('[ForceCalendar] Set registry ID:', registryId);
         } else {
             console.log('[ForceCalendar] Could not set stateManager - viewElement:', !!viewElement, 'stateManager:', !!this.stateManager);
         }

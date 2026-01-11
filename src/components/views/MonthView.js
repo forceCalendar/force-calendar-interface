@@ -10,6 +10,11 @@ import { DateUtils } from '../../utils/DateUtils.js';
 import { StyleUtils } from '../../utils/StyleUtils.js';
 
 export class MonthView extends BaseComponent {
+    // Observe data-state-registry attribute for Locker Service compatibility
+    static get observedAttributes() {
+        return ['data-state-registry'];
+    }
+
     constructor() {
         super();
         this._stateManager = null;
@@ -17,6 +22,29 @@ export class MonthView extends BaseComponent {
         this.config = {
             maxEventsToShow: 3,
         };
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        // Check for registry ID on connect (may already be set)
+        this._checkRegistry();
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        console.log('[MonthView] attributeChangedCallback:', name, oldValue, '->', newValue);
+        if (name === 'data-state-registry' && newValue) {
+            this._checkRegistry();
+        }
+    }
+
+    _checkRegistry() {
+        const registryId = this.getAttribute('data-state-registry');
+        console.log('[MonthView] Checking registry for ID:', registryId);
+        if (registryId && window.__forceCalendarRegistry && window.__forceCalendarRegistry[registryId]) {
+            const manager = window.__forceCalendarRegistry[registryId];
+            console.log('[MonthView] Found stateManager in registry');
+            this.setStateManager(manager);
+        }
     }
 
     set stateManager(manager) {

@@ -10,6 +10,10 @@ import { StyleUtils } from '../../utils/StyleUtils.js';
 import { DOMUtils } from '../../utils/DOMUtils.js';
 
 export class DayView extends BaseComponent {
+    static get observedAttributes() {
+        return ['data-state-registry'];
+    }
+
     constructor() {
         super();
         this._stateManager = null;
@@ -17,11 +21,28 @@ export class DayView extends BaseComponent {
         this.hours = Array.from({ length: 24 }, (_, i) => i);
     }
 
+    connectedCallback() {
+        super.connectedCallback();
+        this._checkRegistry();
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'data-state-registry' && newValue) {
+            this._checkRegistry();
+        }
+    }
+
+    _checkRegistry() {
+        const registryId = this.getAttribute('data-state-registry');
+        if (registryId && window.__forceCalendarRegistry && window.__forceCalendarRegistry[registryId]) {
+            this.setStateManager(window.__forceCalendarRegistry[registryId]);
+        }
+    }
+
     set stateManager(manager) {
         this.setStateManager(manager);
     }
 
-    // Method alternative for Salesforce Locker Service compatibility
     setStateManager(manager) {
         if (this._stateManager === manager) return;
         this._stateManager = manager;
