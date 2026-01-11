@@ -10,31 +10,43 @@ import { StyleUtils } from '../../utils/StyleUtils.js';
 import { DOMUtils } from '../../utils/DOMUtils.js';
 
 export class DayView extends BaseComponent {
-    static get observedAttributes() {
-        return ['data-state-registry'];
-    }
-
     constructor() {
         super();
         this._stateManager = null;
         this.viewData = null;
         this.hours = Array.from({ length: 24 }, (_, i) => i);
+        this._registryCheckInterval = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
-        this._checkRegistry();
+        this._startRegistryPolling();
     }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'data-state-registry' && newValue) {
-            this._checkRegistry();
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._registryCheckInterval) {
+            clearInterval(this._registryCheckInterval);
         }
+    }
+
+    _startRegistryPolling() {
+        this._checkRegistry();
+        let attempts = 0;
+        this._registryCheckInterval = setInterval(() => {
+            attempts++;
+            if (this._stateManager || attempts > 50) {
+                clearInterval(this._registryCheckInterval);
+                return;
+            }
+            this._checkRegistry();
+        }, 100);
     }
 
     _checkRegistry() {
         const registryId = this.getAttribute('data-state-registry');
         if (registryId && window.__forceCalendarRegistry && window.__forceCalendarRegistry[registryId]) {
+            clearInterval(this._registryCheckInterval);
             this.setStateManager(window.__forceCalendarRegistry[registryId]);
         }
     }

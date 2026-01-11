@@ -10,11 +10,6 @@ import { DateUtils } from '../../utils/DateUtils.js';
 import { StyleUtils } from '../../utils/StyleUtils.js';
 
 export class MonthView extends BaseComponent {
-    // Observe data-state-registry attribute for Locker Service compatibility
-    static get observedAttributes() {
-        return ['data-state-registry'];
-    }
-
     constructor() {
         super();
         this._stateManager = null;
@@ -22,18 +17,41 @@ export class MonthView extends BaseComponent {
         this.config = {
             maxEventsToShow: 3,
         };
+        this._registryCheckInterval = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
-        // Check for registry ID on connect (may already be set)
-        this._checkRegistry();
+        console.log('[MonthView] connectedCallback - starting registry polling');
+        // Poll for registry since attributeChangedCallback doesn't work in Locker Service
+        this._startRegistryPolling();
     }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-        console.log('[MonthView] attributeChangedCallback:', name, oldValue, '->', newValue);
-        if (name === 'data-state-registry' && newValue) {
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._stopRegistryPolling();
+    }
+
+    _startRegistryPolling() {
+        // Check immediately
+        this._checkRegistry();
+
+        // Then poll every 100ms until we find it (max 5 seconds)
+        let attempts = 0;
+        this._registryCheckInterval = setInterval(() => {
+            attempts++;
+            if (this._stateManager || attempts > 50) {
+                this._stopRegistryPolling();
+                return;
+            }
             this._checkRegistry();
+        }, 100);
+    }
+
+    _stopRegistryPolling() {
+        if (this._registryCheckInterval) {
+            clearInterval(this._registryCheckInterval);
+            this._registryCheckInterval = null;
         }
     }
 
@@ -43,6 +61,7 @@ export class MonthView extends BaseComponent {
         if (registryId && window.__forceCalendarRegistry && window.__forceCalendarRegistry[registryId]) {
             const manager = window.__forceCalendarRegistry[registryId];
             console.log('[MonthView] Found stateManager in registry');
+            this._stopRegistryPolling();
             this.setStateManager(manager);
         }
     }
