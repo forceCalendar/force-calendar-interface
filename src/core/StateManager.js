@@ -85,13 +85,50 @@ class StateManager {
         return this.state;
     }
 
-    subscribe(callback) {
+    subscribe(callback, subscriberId = null) {
         this.subscribers.add(callback);
-        return () => this.unsubscribe(callback);
+
+        // Track subscriber ID for debugging/cleanup
+        if (subscriberId) {
+            if (!this._subscriberIds) {
+                this._subscriberIds = new Map();
+            }
+            this._subscriberIds.set(subscriberId, callback);
+        }
+
+        return () => this.unsubscribe(callback, subscriberId);
     }
 
-    unsubscribe(callback) {
+    unsubscribe(callback, subscriberId = null) {
         this.subscribers.delete(callback);
+
+        // Clean up ID tracking
+        if (subscriberId && this._subscriberIds) {
+            this._subscriberIds.delete(subscriberId);
+        }
+    }
+
+    /**
+     * Unsubscribe by subscriber ID
+     * @param {string} subscriberId - ID used when subscribing
+     */
+    unsubscribeById(subscriberId) {
+        if (!this._subscriberIds) return false;
+
+        const callback = this._subscriberIds.get(subscriberId);
+        if (callback) {
+            this.subscribers.delete(callback);
+            this._subscriberIds.delete(subscriberId);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get subscriber count (for debugging/monitoring)
+     */
+    getSubscriberCount() {
+        return this.subscribers.size;
     }
 
     notifySubscribers(oldState, newState) {
@@ -362,6 +399,10 @@ class StateManager {
     // Destroy
     destroy() {
         this.subscribers.clear();
+        if (this._subscriberIds) {
+            this._subscriberIds.clear();
+            this._subscriberIds = null;
+        }
         this.state = null;
         this.calendar = null;
     }

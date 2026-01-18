@@ -300,16 +300,16 @@ export class EventForm extends BaseComponent {
             if (e.target === this) this.close();
         });
 
-        // Close on Escape key - remove old listener before adding new one
-        if (this._handleKeyDown) {
-            window.removeEventListener('keydown', this._handleKeyDown);
+        // Close on Escape key - only add once to prevent memory leaks
+        if (!this._keydownListenerAdded) {
+            this._handleKeyDown = (e) => {
+                if (e.key === 'Escape' && this.hasAttribute('open')) {
+                    this.close();
+                }
+            };
+            window.addEventListener('keydown', this._handleKeyDown);
+            this._keydownListenerAdded = true;
         }
-        this._handleKeyDown = (e) => {
-            if (e.key === 'Escape' && this.hasAttribute('open')) {
-                this.close();
-            }
-        };
-        window.addEventListener('keydown', this._handleKeyDown);
     }
 
     updateColorSelection() {
@@ -410,7 +410,12 @@ export class EventForm extends BaseComponent {
         if (this._cleanupFocusTrap) {
             this._cleanupFocusTrap();
         }
-        window.removeEventListener('keydown', this._handleKeyDown);
+        // Clean up window listener
+        if (this._handleKeyDown) {
+            window.removeEventListener('keydown', this._handleKeyDown);
+            this._handleKeyDown = null;
+            this._keydownListenerAdded = false;
+        }
     }
 }
 

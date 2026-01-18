@@ -58,6 +58,17 @@ class EventBus {
      * Unsubscribe from an event
      */
     off(eventName, handler) {
+        // Handle wildcard pattern removal
+        if (eventName.includes('*')) {
+            for (const sub of this.wildcardHandlers) {
+                if (sub.pattern === eventName && sub.handler === handler) {
+                    this.wildcardHandlers.delete(sub);
+                    return;
+                }
+            }
+            return;
+        }
+
         if (!this.events.has(eventName)) return;
 
         const handlers = this.events.get(eventName);
@@ -68,6 +79,43 @@ class EventBus {
 
         if (handlers.length === 0) {
             this.events.delete(eventName);
+        }
+    }
+
+    /**
+     * Remove all wildcard handlers matching a pattern
+     * @param {string} pattern - Pattern to match (e.g., 'event:*')
+     */
+    offWildcard(pattern) {
+        for (const sub of [...this.wildcardHandlers]) {
+            if (sub.pattern === pattern) {
+                this.wildcardHandlers.delete(sub);
+            }
+        }
+    }
+
+    /**
+     * Remove all handlers (regular and wildcard) for a specific handler function
+     * Useful for cleanup when a component is destroyed
+     * @param {Function} handler - Handler function to remove
+     */
+    offAll(handler) {
+        // Remove from regular events
+        for (const [eventName, handlers] of this.events) {
+            const index = handlers.findIndex(sub => sub.handler === handler);
+            if (index > -1) {
+                handlers.splice(index, 1);
+            }
+            if (handlers.length === 0) {
+                this.events.delete(eventName);
+            }
+        }
+
+        // Remove from wildcard handlers
+        for (const sub of [...this.wildcardHandlers]) {
+            if (sub.handler === handler) {
+                this.wildcardHandlers.delete(sub);
+            }
         }
     }
 
@@ -156,6 +204,24 @@ class EventBus {
      */
     getHandlerCount(eventName) {
         return this.events.has(eventName) ? this.events.get(eventName).length : 0;
+    }
+
+    /**
+     * Get wildcard handler count
+     */
+    getWildcardHandlerCount() {
+        return this.wildcardHandlers.size;
+    }
+
+    /**
+     * Get total handler count (for debugging/monitoring)
+     */
+    getTotalHandlerCount() {
+        let count = this.wildcardHandlers.size;
+        for (const handlers of this.events.values()) {
+            count += handlers.length;
+        }
+        return count;
     }
 }
 
