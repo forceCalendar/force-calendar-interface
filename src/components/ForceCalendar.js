@@ -9,6 +9,7 @@ import StateManager from '../core/StateManager.js';
 import eventBus from '../core/EventBus.js';
 import { StyleUtils } from '../utils/StyleUtils.js';
 import { DateUtils } from '../utils/DateUtils.js';
+import { DOMUtils } from '../utils/DOMUtils.js';
 
 // Import view components
 import { MonthView } from './views/MonthView.js';
@@ -501,7 +502,7 @@ export class ForceCalendar extends BaseComponent {
             return `
                 <div class="force-calendar">
                     <div class="fc-error">
-                        <p><strong>Error:</strong> ${error.message || 'An error occurred'}</p>
+                        <p><strong>Error:</strong> ${DOMUtils.escapeHTML(error.message || 'An error occurred')}</p>
                     </div>
                 </div>
             `;
@@ -677,6 +678,11 @@ export class ForceCalendar extends BaseComponent {
             _listeners: [],
             _scrolled: false,
 
+            _escapeHTML(str) {
+                if (str == null) return '';
+                return DOMUtils.escapeHTML(String(str));
+            },
+
             cleanup() {
                 this._listeners.forEach(({ element, event, handler }) => {
                     element.removeEventListener(event, handler);
@@ -758,8 +764,8 @@ export class ForceCalendar extends BaseComponent {
                                 <div class="fc-day-number" style="font-size: 13px; font-weight: 500; color: ${dayNumColor}; padding: 2px 4px; margin-bottom: 4px; ${todayStyle}">${day.dayOfMonth}</div>
                                 <div class="fc-day-events" style="display: flex; flex-direction: column; gap: 2px;">
                                     ${visibleEvents.map(evt => `
-                                        <div class="fc-event" data-event-id="${evt.id}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 11px; padding: 2px 6px; border-radius: 3px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">
-                                            ${evt.title}
+                                        <div class="fc-event" data-event-id="${this._escapeHTML(evt.id)}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 11px; padding: 2px 6px; border-radius: 3px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">
+                                            ${this._escapeHTML(evt.title)}
                                         </div>
                                     `).join('')}
                                     ${moreCount > 0 ? `<div class="fc-more-events" style="font-size: 10px; color: #6b7280; padding: 2px 4px; font-weight: 500;">+${moreCount} more</div>` : ''}
@@ -818,8 +824,8 @@ export class ForceCalendar extends BaseComponent {
                             ${processedDays.map(day => `
                                 <div style="border-right: 1px solid #e5e7eb; padding: 4px; display: flex; flex-direction: column; gap: 2px;">
                                     ${day.allDayEvents.map(evt => `
-                                        <div class="fc-event" data-event-id="${evt.id}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: white; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                            ${evt.title}
+                                        <div class="fc-event" data-event-id="${this._escapeHTML(evt.id)}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: white; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            ${this._escapeHTML(evt.title)}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -919,8 +925,8 @@ export class ForceCalendar extends BaseComponent {
                             <div style="font-size: 9px; color: #6b7280; display: flex; align-items: center; justify-content: center; border-right: 1px solid #e5e7eb; text-transform: uppercase; font-weight: 700;">All day</div>
                             <div style="padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 4px;">
                                 ${allDayEvents.map(evt => `
-                                    <div class="fc-event" data-event-id="${evt.id}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 12px; padding: 4px 8px; border-radius: 4px; color: white; cursor: pointer; font-weight: 500;">
-                                        ${evt.title}
+                                    <div class="fc-event" data-event-id="${this._escapeHTML(evt.id)}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 12px; padding: 4px 8px; border-radius: 4px; color: white; cursor: pointer; font-weight: 500;">
+                                        ${this._escapeHTML(evt.title)}
                                     </div>
                                 `).join('')}
                             </div>
@@ -965,12 +971,12 @@ export class ForceCalendar extends BaseComponent {
                 const color = event.backgroundColor || '#2563eb';
 
                 return `
-                    <div class="fc-event" data-event-id="${event.id}"
+                    <div class="fc-event" data-event-id="${this._escapeHTML(event.id)}"
                          style="position: absolute; top: ${startMinutes}px; height: ${durationMinutes}px; left: 2px; right: 2px;
                                 background-color: ${color}; border-radius: 4px; padding: 4px 8px; font-size: 11px;
                                 font-weight: 500; color: white; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                                 cursor: pointer; z-index: 5;">
-                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${event.title}</div>
+                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeHTML(event.title)}</div>
                         <div style="font-size: 10px; opacity: 0.9;">${this._formatTime(start)}</div>
                     </div>
                 `;
@@ -984,12 +990,12 @@ export class ForceCalendar extends BaseComponent {
                 const color = event.backgroundColor || '#2563eb';
 
                 return `
-                    <div class="fc-event" data-event-id="${event.id}"
+                    <div class="fc-event" data-event-id="${this._escapeHTML(event.id)}"
                          style="position: absolute; top: ${startMinutes}px; height: ${durationMinutes}px; left: 12px; right: 24px;
                                 background-color: ${color}; border-radius: 6px; padding: 8px 12px; font-size: 13px;
                                 font-weight: 500; color: white; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                                 cursor: pointer; z-index: 5;">
-                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${event.title}</div>
+                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeHTML(event.title)}</div>
                         <div style="font-size: 11px; opacity: 0.9;">${this._formatTime(start)} - ${this._formatTime(end)}</div>
                     </div>
                 `;
