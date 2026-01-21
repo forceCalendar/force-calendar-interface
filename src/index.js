@@ -15,11 +15,17 @@ export { DateUtils } from './utils/DateUtils.js';
 export { DOMUtils } from './utils/DOMUtils.js';
 export { StyleUtils } from './utils/StyleUtils.js';
 
+// View Renderers (pure JS classes, Locker Service compatible)
+export { BaseViewRenderer } from './renderers/BaseViewRenderer.js';
+export { MonthViewRenderer } from './renderers/MonthViewRenderer.js';
+export { WeekViewRenderer } from './renderers/WeekViewRenderer.js';
+export { DayViewRenderer } from './renderers/DayViewRenderer.js';
+
 // Components
 import './components/ForceCalendar.js';
 export { ForceCalendar } from './components/ForceCalendar.js';
 
-// Views
+// Views (Web Components - for non-Salesforce usage)
 export { MonthView } from './components/views/MonthView.js';
 export { WeekView } from './components/views/WeekView.js';
 export { DayView } from './components/views/DayView.js';

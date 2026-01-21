@@ -11,11 +11,16 @@ import { StyleUtils } from '../utils/StyleUtils.js';
 import { DateUtils } from '../utils/DateUtils.js';
 import { DOMUtils } from '../utils/DOMUtils.js';
 
-// Import view components
+// Import view renderers (pure JS classes, Locker Service compatible)
+import { MonthViewRenderer } from '../renderers/MonthViewRenderer.js';
+import { WeekViewRenderer } from '../renderers/WeekViewRenderer.js';
+import { DayViewRenderer } from '../renderers/DayViewRenderer.js';
+
+// Import view components (Web Components, for non-Salesforce usage)
 import { MonthView } from './views/MonthView.js';
 import { WeekView } from './views/WeekView.js';
 import { DayView } from './views/DayView.js';
-import { EventForm } from './EventForm.js'; // Import EventForm
+import { EventForm } from './EventForm.js';
 
 // Register view components
 if (!customElements.get('forcecal-month')) {
@@ -161,17 +166,20 @@ export class ForceCalendar extends BaseComponent {
             }
         }
 
-        // Create new view
+        // Create new view using renderer classes
         try {
-            const viewRenderer = this._createViewRenderer(this.currentView);
-            if (viewRenderer) {
-                viewRenderer._viewType = this.currentView;
-                this._currentViewInstance = viewRenderer;
-                viewRenderer.stateManager = this.stateManager;
-                viewRenderer.container = container;
-                viewRenderer.render();
-                // Note: No subscription - handleStateChange manages all view updates
-            }
+            const renderers = {
+                month: MonthViewRenderer,
+                week: WeekViewRenderer,
+                day: DayViewRenderer
+            };
+
+            const RendererClass = renderers[this.currentView] || MonthViewRenderer;
+            const viewRenderer = new RendererClass(container, this.stateManager);
+            viewRenderer._viewType = this.currentView;
+            this._currentViewInstance = viewRenderer;
+            viewRenderer.render();
+            // Note: No subscription - handleStateChange manages all view updates
         } catch (err) {
             console.error('[ForceCalendar] Error switching view:', err);
         }
@@ -663,7 +671,7 @@ export class ForceCalendar extends BaseComponent {
     }
 
     afterRender() {
-        // Manually instantiate and mount view component (bypasses Locker Service)
+        // Manually instantiate and mount view renderer (bypasses Locker Service)
         const container = this.$('#calendar-view-container');
 
         // Only create view once per view type change
@@ -684,18 +692,21 @@ export class ForceCalendar extends BaseComponent {
                 }
             }
 
-            // Create a simple view renderer that doesn't use custom elements
+            // Create view renderer using the appropriate renderer class
             try {
-                const viewRenderer = this._createViewRenderer(this.currentView);
-                if (viewRenderer) {
-                    viewRenderer._viewType = this.currentView;
-                    this._currentViewInstance = viewRenderer;
-                    viewRenderer.stateManager = this.stateManager;
-                    viewRenderer.container = container;
-                    viewRenderer.render();
-                    // Note: No subscription here - handleStateChange manages all view updates
-                    // via _updateViewContent(), _switchView(), or full re-render
-                }
+                const renderers = {
+                    month: MonthViewRenderer,
+                    week: WeekViewRenderer,
+                    day: DayViewRenderer
+                };
+
+                const RendererClass = renderers[this.currentView] || MonthViewRenderer;
+                const viewRenderer = new RendererClass(container, this.stateManager);
+                viewRenderer._viewType = this.currentView;
+                this._currentViewInstance = viewRenderer;
+                viewRenderer.render();
+                // Note: No subscription here - handleStateChange manages all view updates
+                // via _updateViewContent(), _switchView(), or full re-render
             } catch (err) {
                 console.error('[ForceCalendar] Error creating/rendering view:', err);
             }
@@ -747,435 +758,21 @@ export class ForceCalendar extends BaseComponent {
         this._hasRendered = true;
     }
 
+    /**
+     * Create a view renderer instance for the given view type
+     * Uses pure JavaScript renderer classes for Salesforce Locker Service compatibility
+     * @param {string} viewName - 'month', 'week', or 'day'
+     * @returns {BaseViewRenderer} Renderer instance
+     */
     _createViewRenderer(viewName) {
-        // Create a simple view renderer that bypasses custom elements
-        // This is necessary for Salesforce Locker Service compatibility
-        const self = this;
-        const currentViewName = viewName;
-
-        return {
-            stateManager: null,
-            container: null,
-            _listeners: [],
-            _scrolled: false,
-
-            _escapeHTML(str) {
-                if (str == null) return '';
-                return DOMUtils.escapeHTML(String(str));
-            },
-
-            cleanup() {
-                this._listeners.forEach(({ element, event, handler }) => {
-                    element.removeEventListener(event, handler);
-                });
-                this._listeners = [];
-            },
-
-            addListener(element, event, handler) {
-                element.addEventListener(event, handler);
-                this._listeners.push({ element, event, handler });
-            },
-
-            render() {
-                if (!this.container || !this.stateManager) return;
-
-                const viewData = this.stateManager.getViewData();
-                if (!viewData) {
-                    this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Loading...</div>';
-                    return;
-                }
-
-                this.cleanup();
-                const config = this.stateManager.getState().config;
-                let html = '';
-
-                switch (currentViewName) {
-                    case 'week':
-                        html = this._renderWeekView(viewData, config);
-                        break;
-                    case 'day':
-                        html = this._renderDayView(viewData, config);
-                        break;
-                    case 'month':
-                    default:
-                        if (!viewData.weeks) {
-                            this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No data available for month view.</div>';
-                            return;
-                        }
-                        html = this._renderMonthView(viewData, config);
-                        break;
-                }
-
-                this.container.innerHTML = html;
-                this._attachEventHandlers(currentViewName);
-            },
-
-            _renderMonthView(viewData, config) {
-                const weekStartsOn = config.weekStartsOn || 0;
-                const dayNames = [];
-                for (let i = 0; i < 7; i++) {
-                    const dayIndex = (weekStartsOn + i) % 7;
-                    dayNames.push(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex]);
-                }
-
-                let html = `
-                    <div class="fc-month-view" style="display: flex; flex-direction: column; height: 100%; min-height: 400px; background: #fff; border: 1px solid #e5e7eb;">
-                        <div class="fc-month-header" style="display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid #e5e7eb; background: #f9fafb;">
-                            ${dayNames.map(d => `<div class="fc-month-header-cell" style="padding: 12px 8px; text-align: center; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase;">${d}</div>`).join('')}
-                        </div>
-                        <div class="fc-month-body" style="display: flex; flex-direction: column; flex: 1;">
-                `;
-
-                viewData.weeks.forEach(week => {
-                    html += '<div class="fc-month-week" style="display: grid; grid-template-columns: repeat(7, 1fr); flex: 1; min-height: 80px;">';
-                    week.days.forEach(day => {
-                        const isOtherMonth = !day.isCurrentMonth;
-                        const isToday = day.isToday;
-
-                        const dayBg = isOtherMonth ? '#f3f4f6' : '#fff';
-                        const dayNumColor = isOtherMonth ? '#9ca3af' : '#111827';
-                        const todayStyle = isToday ? 'background: #2563eb; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;' : '';
-
-                        const events = day.events || [];
-                        const visibleEvents = events.slice(0, 3);
-                        const moreCount = events.length - 3;
-
-                        html += `
-                            <div class="fc-month-day" data-date="${day.date}" style="background: ${dayBg}; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; padding: 4px; min-height: 80px; cursor: pointer;">
-                                <div class="fc-day-number" style="font-size: 13px; font-weight: 500; color: ${dayNumColor}; padding: 2px 4px; margin-bottom: 4px; ${todayStyle}">${day.dayOfMonth}</div>
-                                <div class="fc-day-events" style="display: flex; flex-direction: column; gap: 2px;">
-                                    ${visibleEvents.map(evt => `
-                                        <div class="fc-event" data-event-id="${this._escapeHTML(evt.id)}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 11px; padding: 2px 6px; border-radius: 3px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">
-                                            ${this._escapeHTML(evt.title)}
-                                        </div>
-                                    `).join('')}
-                                    ${moreCount > 0 ? `<div class="fc-more-events" style="font-size: 10px; color: #6b7280; padding: 2px 4px; font-weight: 500;">+${moreCount} more</div>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    html += '</div>';
-                });
-
-                html += '</div></div>';
-                return html;
-            },
-
-            _renderWeekView(viewData, config) {
-                const days = viewData.days || [];
-                if (days.length === 0) {
-                    return '<div style="padding: 20px; text-align: center; color: #666;">No data available for week view.</div>';
-                }
-
-                const weekStartsOn = config.weekStartsOn || 0;
-                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const hours = Array.from({ length: 24 }, (_, i) => i);
-
-                // Process days to add events
-                const processedDays = days.map(day => {
-                    const dayDate = new Date(day.date);
-                    const events = day.events || [];
-                    return {
-                        ...day,
-                        date: dayDate,
-                        dayName: dayNames[dayDate.getDay()],
-                        dayOfMonth: dayDate.getDate(),
-                        isToday: this._isToday(dayDate),
-                        timedEvents: events.filter(e => !e.allDay),
-                        allDayEvents: events.filter(e => e.allDay)
-                    };
-                });
-
-                let html = `
-                    <div class="fc-week-view" style="display: flex; flex-direction: column; height: 100%; background: #fff; overflow: hidden;">
-                        <!-- Header -->
-                        <div style="display: grid; grid-template-columns: 60px repeat(7, 1fr); border-bottom: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
-                            <div style="border-right: 1px solid #e5e7eb;"></div>
-                            ${processedDays.map(day => `
-                                <div style="padding: 12px 8px; text-align: center; border-right: 1px solid #e5e7eb;">
-                                    <div style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em;">${day.dayName}</div>
-                                    <div style="font-size: 16px; font-weight: 500; margin-top: 4px; ${day.isToday ? 'background: #dc2626; color: white; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;' : 'color: #111827;'}">${day.dayOfMonth}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-
-                        <!-- All Day Row -->
-                        <div style="display: grid; grid-template-columns: 60px repeat(7, 1fr); border-bottom: 1px solid #e5e7eb; background: #fafafa; min-height: 32px; flex-shrink: 0;">
-                            <div style="font-size: 9px; color: #6b7280; display: flex; align-items: center; justify-content: center; border-right: 1px solid #e5e7eb; text-transform: uppercase; font-weight: 700;">All day</div>
-                            ${processedDays.map(day => `
-                                <div style="border-right: 1px solid #e5e7eb; padding: 4px; display: flex; flex-direction: column; gap: 2px;">
-                                    ${day.allDayEvents.map(evt => `
-                                        <div class="fc-event" data-event-id="${this._escapeHTML(evt.id)}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 10px; padding: 2px 4px; border-radius: 2px; color: white; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                            ${this._escapeHTML(evt.title)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            `).join('')}
-                        </div>
-
-                        <!-- Time Grid Body -->
-                        <div id="week-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;">
-                            <div style="display: grid; grid-template-columns: 60px repeat(7, 1fr); position: relative; height: 1440px;">
-                                <!-- Time Gutter -->
-                                <div style="border-right: 1px solid #e5e7eb; background: #fafafa;">
-                                    ${hours.map(h => `
-                                        <div style="height: 60px; font-size: 10px; color: #6b7280; text-align: right; padding-right: 8px; font-weight: 500;">
-                                            ${h === 0 ? '' : this._formatHour(h)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-
-                                <!-- Day Columns -->
-                                ${processedDays.map(day => `
-                                    <div class="fc-week-day-column" data-date="${day.date.toISOString()}" style="border-right: 1px solid #e5e7eb; position: relative; cursor: pointer;">
-                                        <!-- Hour grid lines -->
-                                        ${hours.map(() => `<div style="height: 60px; border-bottom: 1px solid #f3f4f6;"></div>`).join('')}
-
-                                        <!-- Now indicator for today -->
-                                        ${day.isToday ? this._renderNowIndicator() : ''}
-
-                                        <!-- Timed events -->
-                                        ${day.timedEvents.map(evt => this._renderTimedEvent(evt)).join('')}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                return html;
-            },
-
-            _renderDayView(viewData, config) {
-                // Day view from core has: type, date, dayName, isToday, allDayEvents, hours
-                // We need to handle both the core structure and enriched structure
-                const currentDate = this.stateManager?.getState()?.currentDate || new Date();
-
-                let dayDate, dayName, isToday, allDayEvents, timedEvents;
-
-                if (viewData.type === 'day' && viewData.date) {
-                    // Core day view structure
-                    dayDate = new Date(viewData.date);
-                    dayName = viewData.dayName || ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayDate.getDay()];
-                    isToday = viewData.isToday !== undefined ? viewData.isToday : this._isToday(dayDate);
-                    allDayEvents = viewData.allDayEvents || [];
-
-                    // Extract timed events from hours array or get from stateManager
-                    if (viewData.hours && Array.isArray(viewData.hours)) {
-                        // Collect unique events from hours (events can span multiple hours)
-                        const eventMap = new Map();
-                        viewData.hours.forEach(hour => {
-                            (hour.events || []).forEach(evt => {
-                                if (!eventMap.has(evt.id)) {
-                                    eventMap.set(evt.id, evt);
-                                }
-                            });
-                        });
-                        timedEvents = Array.from(eventMap.values());
-                    } else {
-                        timedEvents = [];
-                    }
-                } else if (viewData.days && viewData.days.length > 0) {
-                    // Enriched structure with days array
-                    const dayData = viewData.days.find(d => this._isSameDay(new Date(d.date), currentDate)) || viewData.days[0];
-                    dayDate = new Date(dayData.date);
-                    dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayDate.getDay()];
-                    isToday = this._isToday(dayDate);
-                    const events = dayData.events || [];
-                    allDayEvents = events.filter(e => e.allDay);
-                    timedEvents = events.filter(e => !e.allDay);
-                } else {
-                    return '<div style="padding: 20px; text-align: center; color: #666;">No data available for day view.</div>';
-                }
-
-                const hours = Array.from({ length: 24 }, (_, i) => i);
-
-                let html = `
-                    <div class="fc-day-view" style="display: flex; flex-direction: column; height: 100%; background: #fff; overflow: hidden;">
-                        <!-- Header -->
-                        <div style="display: grid; grid-template-columns: 60px 1fr; border-bottom: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
-                            <div style="border-right: 1px solid #e5e7eb;"></div>
-                            <div style="padding: 16px 24px;">
-                                <div style="font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em;">${dayName}</div>
-                                <div style="font-size: 24px; font-weight: 600; margin-top: 4px; ${isToday ? 'color: #dc2626;' : 'color: #111827;'}">${dayDate.getDate()}</div>
-                            </div>
-                        </div>
-
-                        <!-- All Day Row -->
-                        <div style="display: grid; grid-template-columns: 60px 1fr; border-bottom: 1px solid #e5e7eb; background: #fafafa; min-height: 36px; flex-shrink: 0;">
-                            <div style="font-size: 9px; color: #6b7280; display: flex; align-items: center; justify-content: center; border-right: 1px solid #e5e7eb; text-transform: uppercase; font-weight: 700;">All day</div>
-                            <div style="padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 4px;">
-                                ${allDayEvents.map(evt => `
-                                    <div class="fc-event" data-event-id="${this._escapeHTML(evt.id)}" style="background-color: ${evt.backgroundColor || '#2563eb'}; font-size: 12px; padding: 4px 8px; border-radius: 4px; color: white; cursor: pointer; font-weight: 500;">
-                                        ${this._escapeHTML(evt.title)}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-
-                        <!-- Time Grid Body -->
-                        <div id="day-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;">
-                            <div style="display: grid; grid-template-columns: 60px 1fr; position: relative; height: 1440px;">
-                                <!-- Time Gutter -->
-                                <div style="border-right: 1px solid #e5e7eb; background: #fafafa;">
-                                    ${hours.map(h => `
-                                        <div style="height: 60px; font-size: 11px; color: #6b7280; text-align: right; padding-right: 12px; font-weight: 500;">
-                                            ${h === 0 ? '' : this._formatHour(h)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-
-                                <!-- Day Column -->
-                                <div class="fc-day-column" data-date="${dayDate.toISOString()}" style="position: relative; cursor: pointer;">
-                                    <!-- Hour grid lines -->
-                                    ${hours.map(() => `<div style="height: 60px; border-bottom: 1px solid #f3f4f6;"></div>`).join('')}
-
-                                    <!-- Now indicator for today -->
-                                    ${isToday ? this._renderNowIndicator() : ''}
-
-                                    <!-- Timed events -->
-                                    ${timedEvents.map(evt => this._renderTimedEventDay(evt)).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                return html;
-            },
-
-            _renderTimedEvent(event) {
-                const start = new Date(event.start);
-                const end = new Date(event.end);
-                const startMinutes = start.getHours() * 60 + start.getMinutes();
-                const durationMinutes = Math.max((end - start) / (1000 * 60), 20);
-                const color = event.backgroundColor || '#2563eb';
-
-                return `
-                    <div class="fc-event" data-event-id="${this._escapeHTML(event.id)}"
-                         style="position: absolute; top: ${startMinutes}px; height: ${durationMinutes}px; left: 2px; right: 2px;
-                                background-color: ${color}; border-radius: 4px; padding: 4px 8px; font-size: 11px;
-                                font-weight: 500; color: white; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-                                cursor: pointer; z-index: 5;">
-                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeHTML(event.title)}</div>
-                        <div style="font-size: 10px; opacity: 0.9;">${this._formatTime(start)}</div>
-                    </div>
-                `;
-            },
-
-            _renderTimedEventDay(event) {
-                const start = new Date(event.start);
-                const end = new Date(event.end);
-                const startMinutes = start.getHours() * 60 + start.getMinutes();
-                const durationMinutes = Math.max((end - start) / (1000 * 60), 30);
-                const color = event.backgroundColor || '#2563eb';
-
-                return `
-                    <div class="fc-event" data-event-id="${this._escapeHTML(event.id)}"
-                         style="position: absolute; top: ${startMinutes}px; height: ${durationMinutes}px; left: 12px; right: 24px;
-                                background-color: ${color}; border-radius: 6px; padding: 8px 12px; font-size: 13px;
-                                font-weight: 500; color: white; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                                cursor: pointer; z-index: 5;">
-                        <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this._escapeHTML(event.title)}</div>
-                        <div style="font-size: 11px; opacity: 0.9;">${this._formatTime(start)} - ${this._formatTime(end)}</div>
-                    </div>
-                `;
-            },
-
-            _renderNowIndicator() {
-                const now = new Date();
-                const minutes = now.getHours() * 60 + now.getMinutes();
-                return `<div style="position: absolute; left: 0; right: 0; top: ${minutes}px; height: 2px; background: #dc2626; z-index: 15; pointer-events: none;"></div>`;
-            },
-
-            _formatHour(hour) {
-                const period = hour >= 12 ? 'PM' : 'AM';
-                const displayHour = hour % 12 || 12;
-                return `${displayHour} ${period}`;
-            },
-
-            _formatTime(date) {
-                const hours = date.getHours();
-                const minutes = date.getMinutes();
-                const period = hours >= 12 ? 'PM' : 'AM';
-                const displayHour = hours % 12 || 12;
-                return minutes === 0 ? `${displayHour} ${period}` : `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-            },
-
-            _isToday(date) {
-                const today = new Date();
-                return date.getDate() === today.getDate() &&
-                       date.getMonth() === today.getMonth() &&
-                       date.getFullYear() === today.getFullYear();
-            },
-
-            _isSameDay(date1, date2) {
-                return date1.getDate() === date2.getDate() &&
-                       date1.getMonth() === date2.getMonth() &&
-                       date1.getFullYear() === date2.getFullYear();
-            },
-
-            _attachEventHandlers(viewType) {
-                const stateManager = this.stateManager;
-                const self = this;
-
-                // Day click handlers (for month view)
-                this.container.querySelectorAll('.fc-month-day').forEach(dayEl => {
-                    this.addListener(dayEl, 'click', (e) => {
-                        const date = new Date(dayEl.dataset.date);
-                        stateManager.selectDate(date);
-                    });
-                });
-
-                // Week view day column click handlers
-                this.container.querySelectorAll('.fc-week-day-column').forEach(dayEl => {
-                    this.addListener(dayEl, 'click', (e) => {
-                        if (e.target.closest('.fc-event')) return;
-                        const date = new Date(dayEl.dataset.date);
-                        const rect = dayEl.getBoundingClientRect();
-                        const scrollContainer = this.container.querySelector('#week-scroll-container');
-                        const y = e.clientY - rect.top + (scrollContainer ? scrollContainer.scrollTop : 0);
-                        date.setHours(Math.floor(y / 60), Math.floor(y % 60), 0, 0);
-                        stateManager.selectDate(date);
-                    });
-                });
-
-                // Day view column click handlers
-                this.container.querySelectorAll('.fc-day-column').forEach(dayEl => {
-                    this.addListener(dayEl, 'click', (e) => {
-                        if (e.target.closest('.fc-event')) return;
-                        const date = new Date(dayEl.dataset.date);
-                        const rect = dayEl.getBoundingClientRect();
-                        const scrollContainer = this.container.querySelector('#day-scroll-container');
-                        const y = e.clientY - rect.top + (scrollContainer ? scrollContainer.scrollTop : 0);
-                        date.setHours(Math.floor(y / 60), Math.floor(y % 60), 0, 0);
-                        stateManager.selectDate(date);
-                    });
-                });
-
-                // Event click handlers
-                this.container.querySelectorAll('.fc-event').forEach(eventEl => {
-                    this.addListener(eventEl, 'click', (e) => {
-                        e.stopPropagation();
-                        const eventId = eventEl.dataset.eventId;
-                        const event = stateManager.getEvents().find(ev => ev.id === eventId);
-                        if (event) {
-                            stateManager.selectEvent(event);
-                        }
-                    });
-                });
-
-                // Scroll to 8 AM for week and day views
-                if (viewType === 'week' || viewType === 'day') {
-                    const scrollContainerId = viewType === 'week' ? '#week-scroll-container' : '#day-scroll-container';
-                    const scrollContainer = this.container.querySelector(scrollContainerId);
-                    if (scrollContainer && !this._scrolled) {
-                        scrollContainer.scrollTop = 8 * 60 - 50;
-                        this._scrolled = true;
-                    }
-                }
-            }
+        const renderers = {
+            month: MonthViewRenderer,
+            week: WeekViewRenderer,
+            day: DayViewRenderer
         };
+
+        const RendererClass = renderers[viewName] || MonthViewRenderer;
+        return new RendererClass(null, null); // Container and stateManager set after creation
     }
 
     handleNavigation(event) {
