@@ -237,14 +237,27 @@ export class DragController {
     const a = this._active ?? {};
     const cell = a.dropCell;
     if (!cell) return;
-    const event = this.stateManager.getEvents().find(ev => ev.id === a.eventId);
-    if (!event) return;
-    const oldStart = new Date(event.start);
+    const target = this.stateManager.resolveEventInstance(a.eventId);
+    if (!target) return;
+    const oldStart = target.start;
     const newStart = moveDatePreservingTime(new Date(cell.dataset.date), oldStart);
     const delta = newStart.getTime() - oldStart.getTime();
     if (delta === 0) return;
-    this.stateManager.updateEvent(a.eventId, {
-      start: newStart,
+    this._shiftEvent(target.event, delta);
+  }
+
+  /**
+   * Apply a move to the stored event. Dragging an occurrence of a recurring
+   * series shifts the whole series by the same delta (there is no
+   * per-occurrence edit yet), which is why the delta is computed against the
+   * dragged instance's own times and applied to the master.
+   * @param {import('@forcecalendar/core').Event} event - Stored event (master for an occurrence)
+   * @param {number} delta - Milliseconds to shift start and end by
+   * @private
+   */
+  _shiftEvent(event, delta) {
+    this.stateManager.updateEvent(event.id, {
+      start: new Date(new Date(event.start).getTime() + delta),
       end: new Date(new Date(event.end).getTime() + delta)
     });
   }
@@ -271,11 +284,11 @@ export class DragController {
 
   _timeMoveDrop() {
     const a = this._active ?? {};
-    const event = this.stateManager.getEvents().find(ev => ev.id === a.eventId);
-    if (!event || (!a.deltaMinutes && a.dropColumn === a.originColumn)) return;
+    const target = this.stateManager.resolveEventInstance(a.eventId);
+    if (!target || (!a.deltaMinutes && a.dropColumn === a.originColumn)) return;
 
-    const oldStart = new Date(event.start);
-    const duration = new Date(event.end).getTime() - oldStart.getTime();
+    const oldStart = target.start;
+    const duration = target.end.getTime() - oldStart.getTime();
     const targetDay = a.dropColumn ? new Date(a.dropColumn.dataset.date) : oldStart;
     const dayAligned = moveDatePreservingTime(targetDay, oldStart);
     const startMinutes = clampStartMinutes(
@@ -285,10 +298,7 @@ export class DragController {
     const newStart = new Date(dayAligned);
     newStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
     if (newStart.getTime() === oldStart.getTime()) return;
-    this.stateManager.updateEvent(a.eventId, {
-      start: newStart,
-      end: new Date(newStart.getTime() + duration)
-    });
+    this._shiftEvent(target.event, newStart.getTime() - oldStart.getTime());
   }
 
   // ----- resize -----
@@ -304,10 +314,12 @@ export class DragController {
   _resizeDrop() {
     const a = this._active ?? {};
     if (!a.newHeight || a.newHeight === a.originHeight) return;
-    const event = this.stateManager.getEvents().find(ev => ev.id === a.eventId);
-    if (!event) return;
+    const target = this.stateManager.resolveEventInstance(a.eventId);
+    if (!target) return;
+    // Resizing an occurrence changes the duration of the whole series
+    const { event } = target;
     const newEnd = new Date(new Date(event.start).getTime() + a.newHeight * 60000);
-    this.stateManager.updateEvent(a.eventId, { end: newEnd });
+    this.stateManager.updateEvent(event.id, { end: newEnd });
   }
 
   // ----- drag-to-create -----

@@ -323,7 +323,8 @@ export class BaseViewRenderer {
 
   _selectEventFromElement(eventEl) {
     const eventId = eventEl.dataset.eventId;
-    const event = this.stateManager.getEvents().find(ev => ev.id === eventId);
+    // Chips of a recurring series carry occurrence ids; resolve to the master
+    const event = this.stateManager.findEvent(eventId);
     if (event) {
       this.stateManager.selectEvent(event);
     }
@@ -459,8 +460,7 @@ export class BaseViewRenderer {
     const slots = this.container.querySelectorAll('.fc-hour-slot');
     if (slots.length === 0) return;
     if (!active) {
-      const todayCol =
-        columns.find(c => this.isToday(new Date(c.dataset.date))) || columns[0];
+      const todayCol = columns.find(c => this.isToday(new Date(c.dataset.date))) || columns[0];
       active = todayCol && todayCol.querySelector('.fc-hour-slot[data-hour="9"]');
       active = active || slots[0];
     }

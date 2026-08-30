@@ -329,6 +329,61 @@ class StateManager {
   }
 
   /**
+   * Find a stored event by id. Occurrence ids (`<masterId>_<startMs>`, the
+   * ids rendered chips of a recurring series carry) resolve to the recurring
+   * master, so the result is always something `updateEvent`/`deleteEvent`
+   * can act on.
+   *
+   * Resolves through core when it can (`Calendar#getEvent` applies the same
+   * occurrence resolution) and falls back to the state's events otherwise.
+   *
+   * @param {string} eventId - Event or occurrence id
+   * @returns {CalendarEvent|null} The event (master for an occurrence) or null
+   */
+  findEvent(eventId) {
+    if (!this.calendar || eventId === undefined || eventId === null) return null;
+    if (typeof this.calendar.getEvent === 'function') {
+      const found = this.calendar.getEvent(eventId);
+      if (found) return found;
+    }
+    const events = (this.state && this.state.events) || [];
+    const direct = events.find(event => event.id === eventId);
+    if (direct) return direct;
+    const parsed =
+      typeof CoreEvent.parseOccurrenceId === 'function'
+        ? CoreEvent.parseOccurrenceId(eventId)
+        : null;
+    if (!parsed) return null;
+    const master = events.find(event => event.id === parsed.recurringEventId);
+    return master && master.recurring ? master : null;
+  }
+
+  /**
+   * Resolve the instance an id refers to: the stored event plus the start and
+   * end of that particular instance. For an occurrence id these are the
+   * occurrence's own times (its start from the id, the master's duration);
+   * for a regular id they are the event's own.
+   *
+   * @param {string} eventId - Event or occurrence id
+   * @returns {{ event: CalendarEvent, start: Date, end: Date }|null}
+   */
+  resolveEventInstance(eventId) {
+    const event = this.findEvent(eventId);
+    if (!event) return null;
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+    if (event.id === eventId) return { event, start, end };
+    const parsed = CoreEvent.parseOccurrenceId(eventId);
+    if (!parsed || isNaN(parsed.occurrenceStart.getTime())) return { event, start, end };
+    const occurrenceStart = new Date(parsed.occurrenceStart);
+    return {
+      event,
+      start: occurrenceStart,
+      end: new Date(occurrenceStart.getTime() + (end.getTime() - start.getTime()))
+    };
+  }
+
+  /**
    * Replace the calendar's events with a complete snapshot, applying only the
    * differences.
    *
@@ -784,7 +839,7 @@ class StateManager {
   }
 
   selectEventById(eventId) {
-    const event = this.state.events.find(e => e.id === eventId);
+    const event = this.findEvent(eventId);
     if (event) {
       this.selectEvent(event);
     }

@@ -50,6 +50,10 @@ Rules of the road:
 - Calls made before the element is connected (or after `destroy()`) are queued and replayed in order once it initialises; `setEvents()` returns `null` in that case and `events` reads back the queued snapshot.
 - `calendar-events-set` carries `{ events, added, updated, removed, unchanged }`; `updated` entries are `{ event, oldEvent }` pairs.
 
+### Recurring events
+
+Rendered chips of a recurring series carry occurrence ids (`<masterId>_<startMs>`). Clicking, selecting, dragging or resizing an occurrence resolves to the series master (`stateManager.findEvent(id)`), so `calendar-event-update` and the selection always carry the master event. There is no per-occurrence edit yet: dragging an occurrence shifts the whole series by the dragged delta (a change of date and time of day for every occurrence) and resizing one changes the duration of every occurrence.
+
 ## Visible range
 
 `getVisibleRange()` returns the `{ start, end }` window the current view covers, including the leading and trailing other-month days of the month grid. `end` is inclusive (the last millisecond of the window), so the pair can be passed straight to a range query. The window is expressed in the browser's local time zone regardless of the `timezone` attribute, and it is computed from the date, view and week start alone, so it is cheap to call.
