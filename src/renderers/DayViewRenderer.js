@@ -215,7 +215,12 @@ export class DayViewRenderer extends BaseViewRenderer {
 
     const locale = this.stateManager.getState().config.locale || 'en-US';
     const current = this.stateManager.getState().currentDate || new Date();
-    const label = new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(current);
+    const label = new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(current);
     this._enhanceTimeGridAccessibility('.fc-day-column', label);
 
     // Drag to move/resize events and drag empty grid to create

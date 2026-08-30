@@ -26,7 +26,8 @@ export const THEME_PRESETS = {
     '--fc-success-color': '#2e844a',
     '--fc-border-radius': '0.25rem',
     '--fc-border-radius-sm': '0.125rem',
-    '--fc-font-family': "'Salesforce Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    '--fc-font-family':
+      "'Salesforce Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
   }
 };
 
