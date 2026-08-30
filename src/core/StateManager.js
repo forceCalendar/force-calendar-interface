@@ -530,32 +530,91 @@ class StateManager {
    * `end` is the last millisecond of the window (inclusive), so the pair can
    * be passed straight to {@link StateManager#getEventsInRange}.
    *
+   * The window is computed from the current date, view and week start alone
+   * (no event expansion), with the same calendar arithmetic core uses for its
+   * view data, and is expressed in the browser's local time zone regardless of
+   * the calendar's `timeZone` setting.
+   *
    * @returns {VisibleRange}
    */
   getVisibleRange() {
     const view = this.calendar.getView();
     const date = this.calendar.getCurrentDate();
+    const weekStartsOn = this._configValue('weekStartsOn', 0);
 
-    if (view !== 'day') {
-      const viewData = this.calendar.getViewData() || {};
-      if (viewData.startDate instanceof Date && viewData.endDate instanceof Date) {
-        const start = new Date(viewData.startDate);
-        let end = new Date(viewData.endDate);
-        // The list view reports an exclusive end; normalise it to inclusive
-        if (viewData.type === 'list') {
-          end = new Date(end.getTime() - 1);
-        }
-        return { start, end };
+    switch (view) {
+      case 'month': {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        const start = StateManager._startOfWeek(firstDay, weekStartsOn);
+        const weeks = this._configValue('fixedWeekCount', false)
+          ? 6
+          : Math.ceil((lastDay.getDate() + ((firstDay.getDay() - weekStartsOn + 7) % 7)) / 7);
+        return { start, end: StateManager._lastMoment(start, weeks * 7) };
+      }
+      case 'week': {
+        const start = StateManager._startOfWeek(date, weekStartsOn);
+        return { start, end: StateManager._lastMoment(start, 7) };
+      }
+      case 'list': {
+        const start = new Date(date);
+        start.setHours(0, 0, 0, 0);
+        return { start, end: StateManager._lastMoment(start, 30) };
+      }
+      default: {
+        // Day view (or a view without an explicit window): midnight to midnight
+        const start = new Date(date);
+        start.setHours(0, 0, 0, 0);
+        return { start, end: StateManager._lastMoment(start, 1) };
       }
     }
+  }
 
-    // Day view (or a view without an explicit window): midnight to midnight
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    end.setMilliseconds(-1);
-    return { start, end };
+  /**
+   * Read a calendar configuration value from core state, falling back to the
+   * constructor config and then to a default on cores that do not track it.
+   * @param {string} key
+   * @param {*} fallback
+   * @returns {*}
+   * @private
+   */
+  _configValue(key, fallback) {
+    const coreState = this.calendar.state;
+    if (coreState && typeof coreState.get === 'function') {
+      const value = coreState.get(key);
+      if (value !== undefined) return value;
+    }
+    const configured = this.state && this.state.config ? this.state.config[key] : undefined;
+    return configured !== undefined ? configured : fallback;
+  }
+
+  /**
+   * Local midnight of the first day of the week containing `date`.
+   * Day arithmetic goes through `setDate` so DST transitions do not shift it.
+   * @param {Date} date
+   * @param {number} weekStartsOn
+   * @returns {Date}
+   * @private
+   */
+  static _startOfWeek(date, weekStartsOn) {
+    const result = new Date(date);
+    const day = result.getDay();
+    result.setDate(result.getDate() - ((day < weekStartsOn ? 7 : 0) + day - weekStartsOn));
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  /**
+   * Last millisecond of a window of `days` whole days opening at `start`.
+   * @param {Date} start - Local midnight
+   * @param {number} days
+   * @returns {Date}
+   * @private
+   */
+  static _lastMoment(start, days) {
+    const next = new Date(start);
+    next.setDate(next.getDate() + days);
+    return new Date(next.getTime() - 1);
   }
 
   /**

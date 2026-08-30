@@ -245,3 +245,62 @@ describe('ForceCalendar getVisibleRange() and calendar-range-change', () => {
     expect(received).toHaveLength(0);
   });
 });
+
+describe('StateManager.getVisibleRange() matches the core view window', () => {
+  // Dates chosen to exercise 4-, 5- and 6-week months and a DST transition
+  const dates = [local(2026, 1, 10), local(2026, 3, 15), local(2026, 9, 31), local(2026, 2, 8)];
+  const cases = [];
+  ['month', 'week', 'day', 'list'].forEach(view =>
+    [0, 1, 6].forEach(weekStartsOn =>
+      [true, false].forEach(fixedWeekCount => cases.push([view, weekStartsOn, fixedWeekCount]))
+    )
+  );
+
+  const coreWindow = (calendar, view) => {
+    const viewData = calendar.getViewData();
+    if (view === 'day') {
+      const start = new Date(viewData.date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      return { start, end: new Date(end.getTime() - 1) };
+    }
+    const end =
+      view === 'list' ? new Date(viewData.endDate.getTime() - 1) : new Date(viewData.endDate);
+    return { start: new Date(viewData.startDate), end };
+  };
+
+  test.each(cases)(
+    'view=%s weekStartsOn=%i fixedWeekCount=%s',
+    (view, weekStartsOn, fixedWeekCount) => {
+      dates.forEach(date => {
+        const manager = new StateManager({ view, date, weekStartsOn, fixedWeekCount });
+        const expected = coreWindow(manager.calendar, view);
+        expect(manager.getVisibleRange()).toEqual(expected);
+        expect(manager.calendar.state.get('fixedWeekCount')).toBe(fixedWeekCount);
+        manager.destroy();
+      });
+    }
+  );
+
+  test('does not expand recurring series to compute the window', () => {
+    const manager = new StateManager({ view: 'month', date: local(2026, 3, 15) });
+    manager.setEvents([
+      {
+        id: 'series',
+        title: 'Series',
+        start: local(2026, 3, 1, 9),
+        end: local(2026, 3, 1, 10),
+        recurrenceRule: 'FREQ=DAILY;COUNT=100'
+      }
+    ]);
+    const spy = jest.spyOn(manager.calendar, 'getViewData');
+    const expected = coreWindow(manager.calendar, 'month');
+    spy.mockClear();
+
+    expect(manager.getVisibleRange()).toEqual(expected);
+    manager.next();
+    expect(spy).not.toHaveBeenCalled();
+    manager.destroy();
+  });
+});
