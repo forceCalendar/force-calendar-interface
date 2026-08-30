@@ -31,6 +31,10 @@ export class BaseComponent extends HTMLElement {
   disconnectedCallback() {
     this.unmount();
     this.cleanup();
+    // Drop the rendered tree so a later re-attach starts from an empty shadow
+    // root instead of appending a second style/content pair next to the old one.
+    if (this._styleEl) this._styleEl.remove();
+    if (this._contentWrapper) this._contentWrapper.remove();
     this._styleEl = null;
     this._contentWrapper = null;
   }

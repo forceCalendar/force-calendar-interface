@@ -276,6 +276,17 @@ export class ForceCalendar extends BaseComponent {
   }
 
   mount() {
+    // Re-entrant: connectedCallback runs again whenever the element is moved
+    // or re-attached (React reconciliation/portals, LWC re-render, StrictMode
+    // double-mount). The StateManager survives unmount(), so only the bindings
+    // released there are restored here; after an explicit destroy() start over.
+    if (!this.stateManager || !this.stateManager.state) {
+      this.initialize();
+    }
+    if (!this._stateUnsubscribe) {
+      this._stateUnsubscribe = this.stateManager.subscribe(this.handleStateChange.bind(this));
+      this.setupEventListeners();
+    }
     this.currentView = this.stateManager.getView();
     super.mount();
   }
@@ -1012,11 +1023,22 @@ export class ForceCalendar extends BaseComponent {
   }
 
   unmount() {
-    // Called by disconnectedCallback — clean up all subscriptions
-    this.destroy();
+    // Called by disconnectedCallback. Release everything bound to the rendered
+    // tree (subscriptions, view renderer and its timers, DOM listeners) but keep
+    // the StateManager so the element keeps its view, date and events when it
+    // is re-attached. Full teardown is opt-in via destroy().
+    this._releaseBindings();
   }
 
   destroy() {
+    this._releaseBindings();
+
+    if (this.stateManager) {
+      this.stateManager.destroy();
+    }
+  }
+
+  _releaseBindings() {
     this._busUnsubscribers.forEach(unsub => unsub());
     this._busUnsubscribers = [];
 
@@ -1027,12 +1049,9 @@ export class ForceCalendar extends BaseComponent {
 
     if (this._currentViewInstance && this._currentViewInstance.cleanup) {
       this._currentViewInstance.cleanup();
-      this._currentViewInstance = null;
     }
-
-    if (this.stateManager) {
-      this.stateManager.destroy();
-    }
+    this._currentViewInstance = null;
+    this._hasRendered = false;
     super.cleanup();
   }
 }
