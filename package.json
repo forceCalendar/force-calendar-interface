@@ -29,7 +29,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "jest --testTimeout=10000",
-    "build:types": "tsc -p tsconfig.types.json",
+    "build:types": "tsc -p tsconfig.types.json && node -e \"import('node:fs').then(fs => fs.cpSync('src/types', 'types/types', { recursive: true }))\"",
     "prepublishOnly": "npm run build && npm run build:types"
   },
   "repository": {
