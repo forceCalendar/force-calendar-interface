@@ -35,6 +35,7 @@ export class ForceCalendar extends BaseComponent {
     this.currentView = null;
     this._hasRendered = false; // Track if initial render is complete
     this._busUnsubscribers = [];
+    this._pendingEvents = null; // Snapshot assigned before the state manager exists
   }
 
   /**
@@ -86,6 +87,30 @@ export class ForceCalendar extends BaseComponent {
 
     // Listen for events
     this.setupEventListeners();
+
+    // Frameworks may assign `events` before the element is upgraded (for
+    // example when the component is imported lazily); re-run the setter so
+    // the snapshot reaches the state manager instead of shadowing the accessor.
+    this._upgradeProperty('events');
+    if (this._pendingEvents) {
+      const pending = this._pendingEvents;
+      this._pendingEvents = null;
+      this.stateManager.setEvents(pending.events, pending.options);
+    }
+  }
+
+  /**
+   * Re-apply a property that was set as an own data property before the
+   * custom element was upgraded, so the class accessor sees the value.
+   * @param {string} name
+   * @private
+   */
+  _upgradeProperty(name) {
+    if (Object.prototype.hasOwnProperty.call(this, name)) {
+      const value = this[name];
+      delete this[name];
+      this[name] = value;
+    }
   }
 
   setupEventListeners() {
@@ -147,6 +172,13 @@ export class ForceCalendar extends BaseComponent {
     this._busUnsubscribers.push(
       bus.on('event:deleted', data => {
         this.emit('calendar-event-deleted', data);
+      })
+    );
+
+    // Snapshot loads (setEvents / events property) — one event per snapshot
+    this._busUnsubscribers.push(
+      bus.on('events:set', data => {
+        this.emit('calendar-events-set', data);
       })
     );
 
@@ -1000,6 +1032,48 @@ export class ForceCalendar extends BaseComponent {
 
   getEvents() {
     return this.stateManager.getEvents();
+  }
+
+  /**
+   * Replace the calendar's events with a complete snapshot, applying only the
+   * differences: unchanged events keep their instance, changed ones are
+   * replaced, new ones are added and events missing from the snapshot are
+   * removed unless `removeMissing` is false. The view re-renders at most once
+   * and a single `calendar-events-set` event describes the change set; no
+   * per-event `calendar-event-add`/`-remove` events are dispatched.
+   *
+   * Before the element is connected the snapshot is stored and applied on
+   * initialisation, in which case `null` is returned.
+   *
+   * @param {Iterable<object|import('../core/StateManager.js').CalendarEvent>} events - Complete snapshot of events
+   * @param {import('../core/StateManager.js').EventsSetOptions} [options={}]
+   * @returns {import('../core/StateManager.js').EventsSetResult|null}
+   */
+  setEvents(events, options = {}) {
+    if (!this.stateManager) {
+      this._pendingEvents = { events: events ? Array.from(events) : [], options };
+      return null;
+    }
+    return this.stateManager.setEvents(events, options);
+  }
+
+  /**
+   * Declarative form of {@link ForceCalendar#setEvents}: assign a complete
+   * snapshot and the calendar reconciles it with `removeMissing: true`.
+   * Reading it returns the events currently held by the calendar.
+   *
+   * @returns {import('../core/StateManager.js').CalendarEvent[]}
+   */
+  get events() {
+    if (this.stateManager) return this.stateManager.getEvents();
+    return this._pendingEvents ? this._pendingEvents.events : [];
+  }
+
+  /**
+   * @param {Iterable<object|import('../core/StateManager.js').CalendarEvent>|null} events - Complete snapshot of events
+   */
+  set events(events) {
+    this.setEvents(events);
   }
 
   setView(view) {

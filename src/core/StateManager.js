@@ -8,6 +8,30 @@
 import { Calendar } from '@forcecalendar/core';
 import { EventBus } from './EventBus.js';
 
+/**
+ * @typedef {import('@forcecalendar/core').Event} CalendarEvent
+ */
+
+/**
+ * @typedef {Object} EventsSetOptions
+ * @property {boolean} [removeMissing=true] - Remove stored events that are absent from the snapshot
+ */
+
+/**
+ * @typedef {Object} EventsSetUpdate
+ * @property {CalendarEvent} event - Event now held by the calendar
+ * @property {CalendarEvent} oldEvent - Event instance it replaced
+ */
+
+/**
+ * @typedef {Object} EventsSetResult
+ * @property {CalendarEvent[]} events - All events after the snapshot was applied
+ * @property {CalendarEvent[]} added - Events that were not present before
+ * @property {EventsSetUpdate[]} updated - Events whose data changed
+ * @property {CalendarEvent[]} removed - Events dropped because they were missing from the snapshot
+ * @property {CalendarEvent[]} unchanged - Events left untouched (same instances as before)
+ */
+
 class StateManager {
   constructor(config = {}) {
     // Each StateManager gets its own EventBus to prevent cross-instance
@@ -283,6 +307,133 @@ class StateManager {
   getEvents() {
     // Return from Core (source of truth)
     return this.calendar.getEvents() || [];
+  }
+
+  /**
+   * Replace the calendar's events with a complete snapshot, applying only the
+   * differences.
+   *
+   * Unchanged events keep their existing instance, changed ones are replaced,
+   * new ones are added and events missing from the snapshot are removed
+   * (unless `removeMissing` is false). The state is updated at most once and a
+   * single `events:set` bus event carries the change set. The per-event
+   * `event:add`/`event:added`/`event:remove`/`event:deleted` events are NOT
+   * emitted, so listeners that persist user edits are not triggered by a
+   * snapshot load.
+   *
+   * Uses `Calendar#reconcileEvents` when the installed core provides it
+   * (2.4.0+) and falls back to an id-based diff on older cores.
+   *
+   * @param {Iterable<object|CalendarEvent>} events - Complete snapshot of events
+   * @param {EventsSetOptions} [options={}]
+   * @returns {EventsSetResult} The applied change set
+   * @throws {Error} If an entry fails validation or two entries share an id (an `event:error` bus event is emitted first)
+   */
+  setEvents(events, options = {}) {
+    const { removeMissing = true } = options;
+    const snapshot = events ? Array.from(events) : [];
+
+    let result;
+    try {
+      result =
+        typeof this.calendar.reconcileEvents === 'function'
+          ? this.calendar.setEvents(snapshot, { reconcile: true, removeMissing })
+          : this._reconcileFallback(snapshot, removeMissing);
+    } catch (error) {
+      // Nothing has been applied (core rolls the batch back), so surface the
+      // problem to the caller instead of leaving the snapshot half-loaded
+      this.eventBus.emit('event:error', { action: 'set', events: snapshot, error });
+      throw error;
+    }
+
+    const { added, updated, removed, unchanged } = result;
+    /** @type {EventsSetResult} */
+    const payload = { events: this.getEvents(), added, updated, removed, unchanged };
+
+    if (added.length > 0 || updated.length > 0 || removed.length > 0) {
+      this.setState({ events: [...payload.events] });
+    }
+    this.eventBus.emit('events:set', payload);
+    return payload;
+  }
+
+  /**
+   * Id-based diff for cores that predate `Calendar#reconcileEvents`.
+   * Works on the core calendar directly so no per-event bus events fire.
+   * Equivalence is approximated by comparing the fields present in the
+   * snapshot entry, so an entry that only omits fields is treated as unchanged.
+   *
+   * @param {Array<object|CalendarEvent>} snapshot
+   * @param {boolean} removeMissing
+   * @returns {{ added: CalendarEvent[], updated: EventsSetUpdate[], removed: CalendarEvent[], unchanged: CalendarEvent[] }}
+   * @private
+   */
+  _reconcileFallback(snapshot, removeMissing) {
+    const incoming = new Map();
+    snapshot.forEach(entry => {
+      const id = entry && entry.id;
+      if (id === undefined || id === null || id === '') {
+        throw new Error('Every event in a snapshot must have an id');
+      }
+      if (incoming.has(id)) {
+        throw new Error(`Duplicate event id in snapshot: ${id}`);
+      }
+      incoming.set(id, entry);
+    });
+
+    const result = { added: [], updated: [], removed: [], unchanged: [] };
+    const existingById = new Map(this.getEvents().map(event => [event.id, event]));
+
+    if (removeMissing) {
+      existingById.forEach((existing, id) => {
+        if (!incoming.has(id) && this.calendar.removeEvent(id)) {
+          result.removed.push(existing);
+        }
+      });
+    }
+
+    incoming.forEach((entry, id) => {
+      const existing = existingById.get(id);
+      const data = typeof entry.toObject === 'function' ? entry.toObject() : entry;
+      if (!existing) {
+        const event = this.calendar.addEvent(entry);
+        if (!event) throw new Error(`Failed to add event: ${id}`);
+        result.added.push(event);
+      } else if (existing === entry || this._isEquivalentFallback(existing, data)) {
+        result.unchanged.push(existing);
+      } else {
+        const event = this.calendar.updateEvent(id, data);
+        if (!event) throw new Error(`Failed to update event: ${id}`);
+        result.updated.push({ event, oldEvent: existing });
+      }
+    });
+
+    return result;
+  }
+
+  /**
+   * Field-wise comparison of a stored event against snapshot data.
+   * @param {CalendarEvent} existing
+   * @param {object} data
+   * @returns {boolean}
+   * @private
+   */
+  _isEquivalentFallback(existing, data) {
+    const toTime = value => {
+      if (value instanceof Date) return value.getTime();
+      if (value === undefined || value === null) return NaN;
+      return new Date(value).getTime();
+    };
+    return Object.keys(data).every(key => {
+      const stored = existing[key];
+      const incoming = data[key];
+      if (key === 'start' || key === 'end') return toTime(stored) === toTime(incoming);
+      if (stored === incoming) return true;
+      if (stored === undefined || stored === null || incoming === undefined || incoming === null) {
+        return false;
+      }
+      return JSON.stringify(stored) === JSON.stringify(incoming);
+    });
   }
 
   /**
