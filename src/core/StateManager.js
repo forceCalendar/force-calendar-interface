@@ -32,6 +32,16 @@ import { EventBus } from './EventBus.js';
  * @property {CalendarEvent[]} unchanged - Events left untouched (same instances as before)
  */
 
+/**
+ * @typedef {Object} VisibleRange
+ * @property {Date} start - First instant shown by the current view
+ * @property {Date} end - Last instant shown by the current view (inclusive)
+ */
+
+/**
+ * @typedef {VisibleRange & { view: string, date: Date }} VisibleRangeChange
+ */
+
 class StateManager {
   constructor(config = {}) {
     // Each StateManager gets its own EventBus to prevent cross-instance
@@ -70,6 +80,9 @@ class StateManager {
 
     // Initial sync of events from Core (in case events were pre-loaded)
     this._syncEventsFromCore({ silent: true });
+
+    // Remember the visible window so range:changed only fires on real changes
+    this._visibleRangeKey = this._rangeKey(this.getVisibleRange());
   }
 
   /**
@@ -207,6 +220,7 @@ class StateManager {
     this.calendar.setView(view);
     this.setState({ view });
     this.eventBus.emit('view:changed', { view });
+    this._syncVisibleRange();
   }
 
   getView() {
@@ -217,6 +231,7 @@ class StateManager {
     this.calendar.goToDate(date);
     this.setState({ currentDate: this.calendar.getCurrentDate() });
     this.eventBus.emit('date:changed', { date: this.state.currentDate });
+    this._syncVisibleRange();
   }
 
   getCurrentDate() {
@@ -228,24 +243,28 @@ class StateManager {
     this.calendar.next();
     this.setState({ currentDate: this.calendar.getCurrentDate() });
     this.eventBus.emit('navigation:next', { date: this.state.currentDate });
+    this._syncVisibleRange();
   }
 
   previous() {
     this.calendar.previous();
     this.setState({ currentDate: this.calendar.getCurrentDate() });
     this.eventBus.emit('navigation:previous', { date: this.state.currentDate });
+    this._syncVisibleRange();
   }
 
   today() {
     this.calendar.today();
     this.setState({ currentDate: this.calendar.getCurrentDate() });
     this.eventBus.emit('navigation:today', { date: this.state.currentDate });
+    this._syncVisibleRange();
   }
 
   goToDate(date) {
     this.calendar.goToDate(date);
     this.setState({ currentDate: this.calendar.getCurrentDate() });
     this.eventBus.emit('navigation:goto', { date: this.state.currentDate });
+    this._syncVisibleRange();
   }
 
   // Event management
@@ -502,6 +521,70 @@ class StateManager {
     return enriched;
   }
 
+  // Visible range
+
+  /**
+   * Get the window of dates the current view covers, including leading and
+   * trailing days from adjacent months in the month view.
+   *
+   * `end` is the last millisecond of the window (inclusive), so the pair can
+   * be passed straight to {@link StateManager#getEventsInRange}.
+   *
+   * @returns {VisibleRange}
+   */
+  getVisibleRange() {
+    const view = this.calendar.getView();
+    const date = this.calendar.getCurrentDate();
+
+    if (view !== 'day') {
+      const viewData = this.calendar.getViewData() || {};
+      if (viewData.startDate instanceof Date && viewData.endDate instanceof Date) {
+        const start = new Date(viewData.startDate);
+        let end = new Date(viewData.endDate);
+        // The list view reports an exclusive end; normalise it to inclusive
+        if (viewData.type === 'list') {
+          end = new Date(end.getTime() - 1);
+        }
+        return { start, end };
+      }
+    }
+
+    // Day view (or a view without an explicit window): midnight to midnight
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    end.setMilliseconds(-1);
+    return { start, end };
+  }
+
+  /**
+   * @param {VisibleRange} range
+   * @returns {string}
+   * @private
+   */
+  _rangeKey(range) {
+    return `${range.start.getTime()}:${range.end.getTime()}`;
+  }
+
+  /**
+   * Single choke point for `range:changed`: recompute the visible window and
+   * emit only when it differs from the last one that was announced.
+   * Called after view, date and week-start changes, once their own bus events
+   * have been emitted, so listeners see navigation before the range update.
+   * @private
+   */
+  _syncVisibleRange() {
+    if (!this.calendar) return;
+    const range = this.getVisibleRange();
+    const key = this._rangeKey(range);
+    if (key === this._visibleRangeKey) return;
+    this._visibleRangeKey = key;
+    /** @type {VisibleRangeChange} */
+    const payload = { ...range, view: this.state.view, date: this.state.currentDate };
+    this.eventBus.emit('range:changed', payload);
+  }
+
   // Selection management
   selectEvent(event) {
     this.setState({ selectedEvent: event });
@@ -571,6 +654,7 @@ class StateManager {
     // Update calendar configuration if needed
     if (config.weekStartsOn !== undefined) {
       this.calendar.setWeekStartsOn(config.weekStartsOn);
+      this._syncVisibleRange();
     }
     if (config.locale !== undefined) {
       this.calendar.setLocale(config.locale);

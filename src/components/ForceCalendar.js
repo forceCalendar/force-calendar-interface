@@ -182,6 +182,14 @@ export class ForceCalendar extends BaseComponent {
       })
     );
 
+    // Visible window changes (view, date or week start), emitted after the
+    // navigation / view-change events that caused them
+    this._busUnsubscribers.push(
+      bus.on('range:changed', data => {
+        this.emit('calendar-range-change', data);
+      })
+    );
+
     // Date selection events
     this._busUnsubscribers.push(
       bus.on('date:selected', data => {
@@ -954,7 +962,19 @@ export class ForceCalendar extends BaseComponent {
     }
 
     // Mark initial render as complete for targeted updates
+    const firstRender = !this._hasRendered;
     this._hasRendered = true;
+
+    // Announce the initial visible window once the first mount is complete so
+    // consumers can load data for it without waiting for a navigation
+    if (firstRender && this.stateManager) {
+      const state = this.stateManager.getState();
+      this.emit('calendar-range-change', {
+        ...this.stateManager.getVisibleRange(),
+        view: state.view,
+        date: state.currentDate
+      });
+    }
   }
 
   handleNavigation(event) {
@@ -1074,6 +1094,16 @@ export class ForceCalendar extends BaseComponent {
    */
   set events(events) {
     this.setEvents(events);
+  }
+
+  /**
+   * Get the window of dates the current view covers (leading and trailing
+   * other-month days included). `end` is inclusive.
+   *
+   * @returns {import('../core/StateManager.js').VisibleRange|null} The range, or null before the element is initialised
+   */
+  getVisibleRange() {
+    return this.stateManager ? this.stateManager.getVisibleRange() : null;
   }
 
   setView(view) {
