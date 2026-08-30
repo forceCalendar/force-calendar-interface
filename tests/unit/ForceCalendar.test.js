@@ -207,3 +207,126 @@ describe('ForceCalendar detach and re-attach', () => {
     expect(el.stateManager.getView()).toBe('month');
   });
 });
+
+describe('ForceCalendar detached and destroyed behaviour', () => {
+  let el;
+  const flush = () => new Promise(r => setTimeout(r, 20));
+  const event = id => ({
+    id,
+    title: id,
+    start: new Date(2026, 2, 3, 9).toISOString(),
+    end: new Date(2026, 2, 3, 10).toISOString()
+  });
+
+  beforeEach(async () => {
+    el = document.createElement('forcecal-main');
+    el.setAttribute('view', 'month');
+    el.setAttribute('date', '2026-03-15T12:00:00');
+    document.body.appendChild(el);
+    await flush();
+  });
+
+  afterEach(() => {
+    el.remove();
+  });
+
+  test('after destroy() the API queues or no-ops instead of throwing', async () => {
+    el.destroy();
+
+    expect(el.events).toEqual([]);
+    expect(el.getVisibleRange()).toBeNull();
+    expect(el.setEvents([event('queued')])).toBeNull();
+    expect(el.events.map(e => e.id)).toEqual(['queued']);
+    expect(() => el.setAttribute('view', 'week')).not.toThrow();
+    expect(() => el.setAttribute('date', '2026-05-01')).not.toThrow();
+
+    el.remove();
+    document.body.appendChild(el);
+    await flush();
+
+    expect(el.stateManager.getView()).toBe('week');
+    expect(el.stateManager.getCurrentDate().getMonth()).toBe(4);
+    expect(el.getEvents().map(e => e.id)).toEqual(['queued']);
+  });
+
+  test('attribute changes while detached update state without rendering, then render on re-attach', async () => {
+    const seen = [];
+    el.addEventListener('calendar-range-change', e => seen.push(e.detail.view));
+    el.remove();
+    const renderSpy = jest.spyOn(el, 'render');
+    const intervalSpy = jest.spyOn(window, 'setInterval');
+
+    el.setAttribute('view', 'week');
+
+    expect(el.stateManager.getView()).toBe('week');
+    expect(renderSpy).not.toHaveBeenCalled();
+    expect(intervalSpy).not.toHaveBeenCalled();
+    expect(el._currentViewInstance).toBeNull();
+    // The range change caused by the attribute is still dispatched on the element
+    expect(seen).toEqual(['week']);
+
+    document.body.appendChild(el);
+    await flush();
+
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+    expect(el.shadowRoot.querySelector('[data-view="week"].active')).not.toBeNull();
+    expect(el.shadowRoot.querySelectorAll('#fc-root')).toHaveLength(1);
+    // Re-attaching announces the (now current) window once
+    expect(seen).toEqual(['week', 'week']);
+    renderSpy.mockRestore();
+    intervalSpy.mockRestore();
+  });
+
+  test('API calls made while detached still dispatch their DOM events', async () => {
+    const counts = {};
+    [
+      'calendar-events-set',
+      'calendar-navigate',
+      'calendar-view-change',
+      'calendar-event-add'
+    ].forEach(name => {
+      counts[name] = 0;
+      el.addEventListener(name, () => counts[name]++);
+    });
+    el.remove();
+
+    el.setEvents([event('a')]);
+    el.next();
+    el.setView('day');
+    el.addEvent(event('z'));
+
+    expect(counts).toEqual({
+      'calendar-events-set': 1,
+      'calendar-navigate': 1,
+      'calendar-view-change': 1,
+      'calendar-event-add': 1
+    });
+
+    document.body.appendChild(el);
+    await flush();
+    expect(el.stateManager.eventBus.events.get('view:changed')).toHaveLength(1);
+    expect(el.getEvents()).toHaveLength(2);
+  });
+
+  test('views without a renderer fall back with a warning', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    el.setAttribute('view', 'list');
+    expect(el.stateManager.getView()).toBe('month');
+    el.setView('week');
+    el.setView('agenda');
+    expect(el.stateManager.getView()).toBe('week');
+    expect(warn).toHaveBeenCalledTimes(2);
+
+    const fresh = document.createElement('forcecal-main');
+    fresh.setAttribute('view', 'list');
+    document.body.appendChild(fresh);
+    await flush();
+    expect(fresh.stateManager.getView()).toBe('month');
+    expect(
+      fresh.shadowRoot.querySelector('#calendar-view-container').children.length
+    ).toBeGreaterThan(0);
+    fresh.remove();
+    warn.mockRestore();
+  });
+});

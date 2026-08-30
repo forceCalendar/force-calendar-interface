@@ -263,7 +263,9 @@ export class BaseComponent extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     this.setProp(name, newValue);
-    if (this._initialized) {
+    // A detached element has no rendered tree to update: propChanged() has
+    // already recorded the value and mount() renders it on the next attach
+    if (this._initialized && this.isConnected) {
       this.render();
     }
   }

@@ -437,3 +437,33 @@ describe('StateManager.setEvents() fallback atomicity', () => {
     expect(coreIds).not.toContain('evt-2');
   });
 });
+
+describe('ForceCalendar setEvents() queue before initialisation', () => {
+  let el;
+
+  afterEach(() => {
+    if (el) el.remove();
+    el = null;
+  });
+
+  test('setEvents() calls made before connection are replayed in order', async () => {
+    el = document.createElement('forcecal-main');
+    el.setAttribute('date', '2026-03-15T12:00:00');
+    expect(() => el.setEvents({})).toThrow(TypeError);
+
+    el.setEvents([makeEvent(1)]);
+    el.setEvents([makeEvent(2)], { removeMissing: false });
+    el.setEvents([makeEvent(2, { title: 'Second' }), makeEvent(3)], { removeMissing: false });
+    expect(el.events.map(e => e.id)).toEqual(['evt-1', 'evt-2', 'evt-3']);
+    expect(el.events[1].title).toBe('Second');
+
+    const sets = [];
+    el.addEventListener('calendar-events-set', e => sets.push(e.detail.added.length));
+    document.body.appendChild(el);
+    await tick();
+
+    expect(el.getEvents().map(e => e.id)).toEqual(['evt-1', 'evt-2', 'evt-3']);
+    expect(el.getEvents()[1].title).toBe('Second');
+    expect(sets).toEqual([1, 1, 1]);
+  });
+});

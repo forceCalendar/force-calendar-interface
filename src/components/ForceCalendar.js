@@ -29,13 +29,52 @@ export class ForceCalendar extends BaseComponent {
     return ['view', 'date', 'locale', 'timezone', 'week-starts-on', 'height', 'theme'];
   }
 
+  /**
+   * setEvents() calls made before the state manager exists, replayed in
+   * order by initialize()
+   * @private @type {Array<{ events: Array<object|import('../core/StateManager.js').CalendarEvent>, options: import('../core/StateManager.js').EventsSetOptions }>}
+   */
+  _pendingSnapshots = [];
+
+  /**
+   * Timer for the deferred first-mount `calendar-range-change`
+   * @private @type {ReturnType<typeof setTimeout>|null}
+   */
+  _initialRangeTimer = null;
+
   constructor() {
     super();
     this.stateManager = null;
     this.currentView = null;
     this._hasRendered = false; // Track if initial render is complete
     this._busUnsubscribers = [];
-    this._pendingEvents = null; // Snapshot assigned before the state manager exists
+  }
+
+  /**
+   * Whether a live StateManager is attached. False before the first
+   * connection and after destroy(), when the public API queues or no-ops
+   * instead of throwing.
+   * @returns {boolean}
+   * @private
+   */
+  _isInitialised() {
+    return Boolean(this.stateManager && this.stateManager.state);
+  }
+
+  /**
+   * Map a requested view onto one the component can render, warning about
+   * (and ignoring) values without a renderer instead of showing an empty grid.
+   * @param {string|null|undefined} view
+   * @param {string} [fallback='month']
+   * @returns {string}
+   * @private
+   */
+  _resolveView(view, fallback = 'month') {
+    if (!view) return fallback;
+    if (Object.prototype.hasOwnProperty.call(ForceCalendar.RENDERERS, view)) return view;
+    // eslint-disable-next-line no-console
+    console.warn(`[ForceCalendar] Unknown view "${view}", falling back to "${fallback}"`);
+    return fallback;
   }
 
   /**
@@ -45,11 +84,13 @@ export class ForceCalendar extends BaseComponent {
    * visible effect. 'height' is presentational and picked up by render().
    */
   propChanged(name, oldValue, newValue) {
-    if (!this.stateManager || oldValue === newValue) return;
+    if (!this._isInitialised() || oldValue === newValue) return;
 
     switch (name) {
       case 'view':
-        if (newValue) this.stateManager.setView(newValue);
+        if (newValue) {
+          this.stateManager.setView(this._resolveView(newValue, this.stateManager.getView()));
+        }
         break;
       case 'date': {
         const date = newValue ? new Date(newValue) : null;
@@ -73,7 +114,7 @@ export class ForceCalendar extends BaseComponent {
   initialize() {
     // Initialize state manager with config from attributes
     const config = {
-      view: this.getAttribute('view') || 'month',
+      view: this._resolveView(this.getAttribute('view')),
       date: this.getAttribute('date') ? new Date(this.getAttribute('date')) : new Date(),
       locale: this.getAttribute('locale') || 'en-US',
       timeZone: this.getAttribute('timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -85,18 +126,18 @@ export class ForceCalendar extends BaseComponent {
     // Subscribe to state changes (store unsubscribe for cleanup)
     this._stateUnsubscribe = this.stateManager.subscribe(this.handleStateChange.bind(this));
 
-    // Listen for events
+    // Forward bus events to DOM events. These live as long as the state
+    // manager (until destroy()), so API calls made while the element is
+    // detached still dispatch their events to listeners on the element.
     this.setupEventListeners();
 
     // Frameworks may assign `events` before the element is upgraded (for
     // example when the component is imported lazily); re-run the setter so
     // the snapshot reaches the state manager instead of shadowing the accessor.
     this._upgradeProperty('events');
-    if (this._pendingEvents) {
-      const pending = this._pendingEvents;
-      this._pendingEvents = null;
-      this.stateManager.setEvents(pending.events, pending.options);
-    }
+    const pending = this._pendingSnapshots;
+    this._pendingSnapshots = [];
+    pending.forEach(({ events, options }) => this.stateManager.setEvents(events, options));
   }
 
   /**
@@ -320,15 +361,21 @@ export class ForceCalendar extends BaseComponent {
     // or re-attached (React reconciliation/portals, LWC re-render, StrictMode
     // double-mount). The StateManager survives unmount(), so only the bindings
     // released there are restored here; after an explicit destroy() start over.
-    if (!this.stateManager || !this.stateManager.state) {
+    if (!this._isInitialised()) {
       this.initialize();
     }
     if (!this._stateUnsubscribe) {
       this._stateUnsubscribe = this.stateManager.subscribe(this.handleStateChange.bind(this));
-      this.setupEventListeners();
     }
     this.currentView = this.stateManager.getView();
     super.mount();
+  }
+
+  render() {
+    // Nothing to draw without a state manager (after destroy() while the
+    // element is still attached); the next attach initialises and renders
+    if (!this._isInitialised()) return;
+    super.render();
   }
 
   loadView(viewType) {
@@ -966,14 +1013,30 @@ export class ForceCalendar extends BaseComponent {
     this._hasRendered = true;
 
     // Announce the initial visible window once the first mount is complete so
-    // consumers can load data for it without waiting for a navigation
-    if (firstRender && this.stateManager) {
-      const state = this.stateManager.getState();
-      this.emit('calendar-range-change', {
-        ...this.stateManager.getVisibleRange(),
-        view: state.view,
-        date: state.currentDate
-      });
+    // consumers can load data for it without waiting for a navigation. It is
+    // deferred to a macrotask so listeners attached right after appendChild
+    // (framework refs and effects, lazy define()) still receive it; if the
+    // element is detached before it fires, the announcement is dropped.
+    if (firstRender && this._isInitialised()) {
+      this._cancelInitialRangeAnnouncement();
+      this._initialRangeTimer = setTimeout(() => {
+        this._initialRangeTimer = null;
+        if (!this._isInitialised()) return;
+        const state = this.stateManager.getState();
+        this.emit('calendar-range-change', {
+          ...this.stateManager.getVisibleRange(),
+          view: state.view,
+          date: state.currentDate
+        });
+      }, 0);
+    }
+  }
+
+  /** @private */
+  _cancelInitialRangeAnnouncement() {
+    if (this._initialRangeTimer !== null) {
+      clearTimeout(this._initialRangeTimer);
+      this._initialRangeTimer = null;
     }
   }
 
@@ -1062,16 +1125,21 @@ export class ForceCalendar extends BaseComponent {
    * and a single `calendar-events-set` event describes the change set; no
    * per-event `calendar-event-add`/`-remove` events are dispatched.
    *
-   * Before the element is connected the snapshot is stored and applied on
-   * initialisation, in which case `null` is returned.
+   * Occurrences of a recurring series (as found in view data and click
+   * events) are mapped back to their master, so displayed events can be echoed
+   * through a snapshot without collapsing the series.
    *
-   * @param {Iterable<object|import('../core/StateManager.js').CalendarEvent>} events - Complete snapshot of events
+   * Before the element is connected (or after destroy()) the call is queued
+   * and replayed in order on initialisation, in which case `null` is returned.
+   *
+   * @param {Iterable<object|import('../core/StateManager.js').CalendarEvent>|null|undefined} events - Complete snapshot of events (`null`/`undefined` clears)
    * @param {import('../core/StateManager.js').EventsSetOptions} [options={}]
    * @returns {import('../core/StateManager.js').EventsSetResult|null}
+   * @throws {TypeError} If `events` is not iterable or an entry is not an object
    */
   setEvents(events, options = {}) {
-    if (!this.stateManager) {
-      this._pendingEvents = { events: events ? Array.from(events) : [], options };
+    if (!this._isInitialised()) {
+      this._pendingSnapshots.push({ events: StateManager.toSnapshot(events), options });
       return null;
     }
     return this.stateManager.setEvents(events, options);
@@ -1080,13 +1148,22 @@ export class ForceCalendar extends BaseComponent {
   /**
    * Declarative form of {@link ForceCalendar#setEvents}: assign a complete
    * snapshot and the calendar reconciles it with `removeMissing: true`.
-   * Reading it returns the events currently held by the calendar.
+   * Reading it returns the events currently held by the calendar, or the
+   * snapshot that will be applied on initialisation while queued.
    *
    * @returns {import('../core/StateManager.js').CalendarEvent[]}
    */
   get events() {
-    if (this.stateManager) return this.stateManager.getEvents();
-    return this._pendingEvents ? this._pendingEvents.events : [];
+    if (this._isInitialised()) return this.stateManager.getEvents();
+    // Fold the queued calls the way setEvents() will apply them
+    let pending = new Map();
+    this._pendingSnapshots.forEach(({ events, options }) => {
+      if (!options || options.removeMissing !== false) pending = new Map();
+      events.forEach(entry => pending.set(entry.id, entry));
+    });
+    return /** @type {import('../core/StateManager.js').CalendarEvent[]} */ (
+      Array.from(pending.values())
+    );
   }
 
   /**
@@ -1098,16 +1175,17 @@ export class ForceCalendar extends BaseComponent {
 
   /**
    * Get the window of dates the current view covers (leading and trailing
-   * other-month days included). `end` is inclusive.
+   * other-month days included). `end` is inclusive. The window is expressed in
+   * the browser's local time zone regardless of the `timezone` attribute.
    *
    * @returns {import('../core/StateManager.js').VisibleRange|null} The range, or null before the element is initialised
    */
   getVisibleRange() {
-    return this.stateManager ? this.stateManager.getVisibleRange() : null;
+    return this._isInitialised() ? this.stateManager.getVisibleRange() : null;
   }
 
   setView(view) {
-    this.stateManager.setView(view);
+    this.stateManager.setView(this._resolveView(view, this.stateManager.getView()));
   }
 
   setDate(date) {
@@ -1128,14 +1206,17 @@ export class ForceCalendar extends BaseComponent {
 
   unmount() {
     // Called by disconnectedCallback. Release everything bound to the rendered
-    // tree (subscriptions, view renderer and its timers, DOM listeners) but keep
-    // the StateManager so the element keeps its view, date and events when it
-    // is re-attached. Full teardown is opt-in via destroy().
+    // tree (state subscription, view renderer and its timers, DOM listeners)
+    // but keep the StateManager and its bus forwarding so the element keeps
+    // its view, date and events, and keeps dispatching API events, while
+    // detached. Full teardown is opt-in via destroy().
     this._releaseBindings();
   }
 
   destroy() {
     this._releaseBindings();
+    this._busUnsubscribers.forEach(unsub => unsub());
+    this._busUnsubscribers = [];
 
     if (this.stateManager) {
       this.stateManager.destroy();
@@ -1143,8 +1224,7 @@ export class ForceCalendar extends BaseComponent {
   }
 
   _releaseBindings() {
-    this._busUnsubscribers.forEach(unsub => unsub());
-    this._busUnsubscribers = [];
+    this._cancelInitialRangeAnnouncement();
 
     if (this._stateUnsubscribe) {
       this._stateUnsubscribe();

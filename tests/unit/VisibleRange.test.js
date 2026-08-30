@@ -304,3 +304,62 @@ describe('StateManager.getVisibleRange() matches the core view window', () => {
     manager.destroy();
   });
 });
+
+describe('ForceCalendar first-mount calendar-range-change timing', () => {
+  let el;
+
+  afterEach(() => {
+    if (el) el.remove();
+    el = null;
+  });
+
+  test('a listener attached right after appendChild receives it', async () => {
+    el = document.createElement('forcecal-main');
+    el.setAttribute('view', 'month');
+    el.setAttribute('date', '2026-04-15T12:00:00');
+    document.body.appendChild(el);
+
+    const received = [];
+    el.addEventListener('calendar-range-change', e => received.push(e.detail));
+    expect(received).toHaveLength(0);
+    await tick();
+
+    expect(received).toHaveLength(1);
+    expect(received[0]).toEqual({
+      start: startOf(2026, 2, 29),
+      end: el.getVisibleRange().end,
+      view: 'month',
+      date: el.stateManager.getCurrentDate()
+    });
+  });
+
+  test('an element upgraded by a later define() announces to listeners added after define()', async () => {
+    const { ForceCalendar } = await import('../../src/components/ForceCalendar.js');
+    el = document.createElement('forcecal-lazy-range');
+    el.setAttribute('date', '2026-04-15T12:00:00');
+    document.body.appendChild(el);
+
+    customElements.define('forcecal-lazy-range', class extends ForceCalendar {});
+    const received = [];
+    el.addEventListener('calendar-range-change', e => received.push(e.detail.view));
+    await tick();
+
+    expect(received).toEqual(['month']);
+  });
+
+  test('detaching before it fires drops the announcement; the next attach announces once', async () => {
+    el = document.createElement('forcecal-main');
+    const received = [];
+    el.addEventListener('calendar-range-change', e => received.push(e.detail.view));
+
+    document.body.appendChild(el);
+    el.remove();
+    await tick();
+    expect(received).toHaveLength(0);
+
+    document.body.appendChild(el);
+    document.body.appendChild(el);
+    await tick();
+    expect(received).toHaveLength(1);
+  });
+});
