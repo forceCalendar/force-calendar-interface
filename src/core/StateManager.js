@@ -5,7 +5,7 @@
  * Provides reactive state updates and component synchronization
  */
 
-import { Calendar } from '@forcecalendar/core';
+import { Calendar, Event as CoreEvent } from '@forcecalendar/core';
 import { EventBus } from './EventBus.js';
 
 /**
@@ -340,28 +340,38 @@ class StateManager {
    * emitted, so listeners that persist user edits are not triggered by a
    * snapshot load.
    *
+   * Occurrences of a recurring series (as handed out by view data, range
+   * queries and click events) are mapped back to the stored master they
+   * belong to, so echoing displayed events through a snapshot never replaces
+   * a series with a single instance.
+   *
    * Uses `Calendar#reconcileEvents` when the installed core provides it
    * (2.4.0+) and falls back to an id-based diff on older cores.
    *
-   * @param {Iterable<object|CalendarEvent>} events - Complete snapshot of events
+   * @param {Iterable<object|CalendarEvent>|null|undefined} events - Complete snapshot of events (`null`/`undefined` clears)
    * @param {EventsSetOptions} [options={}]
    * @returns {EventsSetResult} The applied change set
-   * @throws {Error} If an entry fails validation or two entries share an id (an `event:error` bus event is emitted first)
+   * @throws {TypeError} If `events` is not iterable or an entry is not an object
+   * @throws {Error} If an entry fails validation, two entries share an id or an occurrence has no stored master (an `event:error` bus event is emitted first)
    */
   setEvents(events, options = {}) {
     const { removeMissing = true } = options;
-    const snapshot = events ? Array.from(events) : [];
+    let snapshot = [];
 
     let result;
     try {
+      snapshot = this._resolveOccurrences(StateManager.toSnapshot(events));
       result =
         typeof this.calendar.reconcileEvents === 'function'
           ? this.calendar.setEvents(snapshot, { reconcile: true, removeMissing })
           : this._reconcileFallback(snapshot, removeMissing);
     } catch (error) {
-      // Nothing has been applied (core rolls the batch back), so surface the
-      // problem to the caller instead of leaving the snapshot half-loaded
-      this.eventBus.emit('event:error', { action: 'set', events: snapshot, error });
+      // Nothing has been applied (core rolls the batch back and the fallback
+      // resyncs before rethrowing), so surface the problem to the caller
+      // instead of leaving the snapshot half-loaded
+      if (this.eventBus) {
+        this.eventBus.emit('event:error', { action: 'set', events: snapshot, error });
+      }
       throw error;
     }
 
@@ -377,8 +387,119 @@ class StateManager {
   }
 
   /**
+   * Turn the `events` argument of {@link StateManager#setEvents} into an array
+   * of entries, rejecting values that would otherwise be applied as an empty
+   * or malformed snapshot.
+   *
+   * @param {Iterable<object|CalendarEvent>|null|undefined} events
+   * @returns {Array<object|CalendarEvent>}
+   * @throws {TypeError} If `events` is not iterable or an entry is not an object
+   */
+  static toSnapshot(events) {
+    if (events === undefined || events === null) return [];
+    if (typeof events !== 'object' || typeof events[Symbol.iterator] !== 'function') {
+      throw new TypeError('setEvents() expects an iterable of event objects');
+    }
+    const snapshot = Array.from(events);
+    snapshot.forEach((entry, index) => {
+      if (entry === null || typeof entry !== 'object') {
+        throw new TypeError(`Snapshot entry at index ${index} is not an event object`);
+      }
+    });
+    return snapshot;
+  }
+
+  /**
+   * Replace occurrence entries with the stored recurring master they belong
+   * to. Duplicated masters collapse to one entry and an explicit master entry
+   * always wins over the stored instance implied by its occurrences, so the
+   * snapshot can still update the series.
+   *
+   * @param {Array<object|CalendarEvent>} snapshot
+   * @returns {Array<object|CalendarEvent>}
+   * @throws {Error} If an occurrence refers to a series the calendar does not hold
+   * @private
+   */
+  _resolveOccurrences(snapshot) {
+    const stored = new Map(this.getEvents().map(event => [event.id, event]));
+    const resolved = [];
+    const explicitIds = new Set();
+    // master id -> index in `resolved` of the entry implied by an occurrence
+    const impliedIndex = new Map();
+
+    snapshot.forEach(entry => {
+      const masterId = this._occurrenceMasterId(entry, stored);
+      if (masterId === null) {
+        const id = entry.id;
+        if (impliedIndex.has(id)) {
+          resolved[impliedIndex.get(id)] = entry;
+          impliedIndex.delete(id);
+        } else {
+          resolved.push(entry);
+        }
+        explicitIds.add(id);
+        return;
+      }
+      if (explicitIds.has(masterId) || impliedIndex.has(masterId)) return;
+      const master = stored.get(masterId);
+      if (!master) {
+        throw new Error(
+          `Snapshot entry "${entry.id}" is an occurrence of recurring event "${masterId}", ` +
+            'which the calendar does not hold; pass the master event instead'
+        );
+      }
+      impliedIndex.set(masterId, resolved.length);
+      resolved.push(master);
+    });
+
+    return resolved;
+  }
+
+  /**
+   * Work out whether a snapshot entry is an occurrence of a recurring series
+   * and, if so, which master id it belongs to.
+   *
+   * Occurrences are recognised by the `isOccurrence` flag core sets on expanded
+   * instances, by the `metadata.occurrenceId` marker that survives
+   * `toObject()`/JSON round trips, or by an `<masterId>_<startMs>` id whose
+   * master is a stored recurring event (the same resolution core applies in
+   * `getEvent`).
+   *
+   * @param {object|CalendarEvent} entry
+   * @param {Map<string, CalendarEvent>} stored
+   * @returns {string|null} The master id, or null for a regular entry
+   * @private
+   */
+  _occurrenceMasterId(entry, stored) {
+    const metadata = entry.metadata && typeof entry.metadata === 'object' ? entry.metadata : null;
+    const flagged =
+      entry.isOccurrence === true ||
+      (metadata !== null &&
+        metadata.occurrenceId !== undefined &&
+        metadata.occurrenceId === entry.id);
+    const declared =
+      entry.recurringEventId || (metadata !== null ? metadata.recurringEventId : undefined);
+    if (declared !== undefined && declared !== null && declared !== '' && flagged) {
+      return String(declared);
+    }
+
+    const parsed =
+      typeof CoreEvent.parseOccurrenceId === 'function'
+        ? CoreEvent.parseOccurrenceId(entry.id)
+        : null;
+    if (!parsed) return null;
+    if (flagged) return parsed.recurringEventId;
+    const master = stored.get(parsed.recurringEventId);
+    return master && master.recurring ? parsed.recurringEventId : null;
+  }
+
+  /**
    * Id-based diff for cores that predate `Calendar#reconcileEvents`.
-   * Works on the core calendar directly so no per-event bus events fire.
+   * Works on the core calendar directly so no per-event bus events fire
+   * (core-level `eventAdd`/`eventUpdate` listeners still see each change).
+   * Every entry is validated before the store is touched; should a mutation
+   * still fail part-way, the state is resynced from core before rethrowing so
+   * the two never disagree.
    * Equivalence is approximated by comparing the fields present in the
    * snapshot entry, so an entry that only omits fields is treated as unchanged.
    *
@@ -390,12 +511,17 @@ class StateManager {
   _reconcileFallback(snapshot, removeMissing) {
     const incoming = new Map();
     snapshot.forEach(entry => {
-      const id = entry && entry.id;
+      const id = entry.id;
       if (id === undefined || id === null || id === '') {
         throw new Error('Every event in a snapshot must have an id');
       }
       if (incoming.has(id)) {
         throw new Error(`Duplicate event id in snapshot: ${id}`);
+      }
+      // Validate up front: the core constructor throws on malformed data, so
+      // nothing below can fail on input the caller can fix
+      if (!(entry instanceof CoreEvent)) {
+        new CoreEvent(typeof entry.toObject === 'function' ? entry.toObject() : entry);
       }
       incoming.set(id, entry);
     });
@@ -403,29 +529,36 @@ class StateManager {
     const result = { added: [], updated: [], removed: [], unchanged: [] };
     const existingById = new Map(this.getEvents().map(event => [event.id, event]));
 
-    if (removeMissing) {
-      existingById.forEach((existing, id) => {
-        if (!incoming.has(id) && this.calendar.removeEvent(id)) {
-          result.removed.push(existing);
+    try {
+      if (removeMissing) {
+        existingById.forEach((existing, id) => {
+          if (!incoming.has(id) && this.calendar.removeEvent(id)) {
+            result.removed.push(existing);
+          }
+        });
+      }
+
+      incoming.forEach((entry, id) => {
+        const existing = existingById.get(id);
+        const data = typeof entry.toObject === 'function' ? entry.toObject() : entry;
+        if (!existing) {
+          const event = this.calendar.addEvent(entry);
+          if (!event) throw new Error(`Failed to add event: ${id}`);
+          result.added.push(event);
+        } else if (existing === entry || this._isEquivalentFallback(existing, data)) {
+          result.unchanged.push(existing);
+        } else {
+          const event = this.calendar.updateEvent(id, data);
+          if (!event) throw new Error(`Failed to update event: ${id}`);
+          result.updated.push({ event, oldEvent: existing });
         }
       });
+    } catch (error) {
+      // The fallback is not transactional: keep state.events truthful about
+      // whatever core now holds before handing the error back
+      this._syncEventsFromCore({ force: true });
+      throw error;
     }
-
-    incoming.forEach((entry, id) => {
-      const existing = existingById.get(id);
-      const data = typeof entry.toObject === 'function' ? entry.toObject() : entry;
-      if (!existing) {
-        const event = this.calendar.addEvent(entry);
-        if (!event) throw new Error(`Failed to add event: ${id}`);
-        result.added.push(event);
-      } else if (existing === entry || this._isEquivalentFallback(existing, data)) {
-        result.unchanged.push(existing);
-      } else {
-        const event = this.calendar.updateEvent(id, data);
-        if (!event) throw new Error(`Failed to update event: ${id}`);
-        result.updated.push({ event, oldEvent: existing });
-      }
-    });
 
     return result;
   }

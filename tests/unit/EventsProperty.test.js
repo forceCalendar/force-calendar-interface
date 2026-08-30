@@ -289,3 +289,151 @@ describe('StateManager.setEvents() fallback for cores without reconcileEvents', 
     expect(manager.getEvents()).toHaveLength(3);
   });
 });
+
+describe('ForceCalendar setEvents() input handling', () => {
+  let el;
+  const local = (d, h) => new Date(2026, 2, d, h, 0, 0, 0);
+  const series = (overrides = {}) => ({
+    id: 'standup',
+    title: 'Standup',
+    start: local(3, 9),
+    end: local(3, 10),
+    recurrenceRule: 'FREQ=WEEKLY;COUNT=3',
+    ...overrides
+  });
+  const shownEvents = () =>
+    el.stateManager.getViewData().weeks.flatMap(week => week.days.flatMap(day => day.events));
+
+  const mount = async () => {
+    el = document.createElement('forcecal-main');
+    el.setAttribute('view', 'month');
+    el.setAttribute('date', '2026-03-15T12:00:00');
+    document.body.appendChild(el);
+    await tick();
+    return el;
+  };
+
+  afterEach(() => {
+    if (el) el.remove();
+    el = null;
+  });
+
+  test('echoing view-data occurrences through setEvents leaves the master intact', async () => {
+    await mount();
+    el.events = [makeEvent(1), series()];
+    const master = el.getEvents().find(e => e.id === 'standup');
+    const shown = shownEvents();
+    const occurrences = shown.filter(e => e.isOccurrence);
+    expect(occurrences).toHaveLength(3);
+
+    const result = el.setEvents(shown);
+
+    expect(result.added).toEqual([]);
+    expect(result.updated).toEqual([]);
+    expect(result.removed).toEqual([]);
+    expect(result.unchanged).toHaveLength(2);
+    expect(
+      el
+        .getEvents()
+        .map(e => e.id)
+        .sort()
+    ).toEqual(['evt-1', 'standup']);
+    expect(el.getEvents().find(e => e.id === 'standup')).toBe(master);
+    expect(shownEvents().filter(e => e.isOccurrence)).toHaveLength(3);
+  });
+
+  test('serialised occurrences (toObject / JSON) resolve to the master as well', async () => {
+    await mount();
+    el.events = [series()];
+    const rows = JSON.parse(JSON.stringify(shownEvents().map(e => e.toObject())));
+    expect(rows.every(row => row.id.startsWith('standup_'))).toBe(true);
+
+    const result = el.setEvents(rows);
+
+    expect(result.unchanged).toHaveLength(1);
+    expect(el.getEvents().map(e => e.id)).toEqual(['standup']);
+    expect(el.getEvents()[0].recurring).toBe(true);
+  });
+
+  test('an explicit master entry wins over its occurrences and can update the series', async () => {
+    await mount();
+    el.events = [series()];
+    const occurrences = shownEvents();
+
+    const result = el.setEvents([...occurrences, series({ title: 'Renamed' })]);
+
+    expect(result.updated).toHaveLength(1);
+    expect(el.getEvents().map(e => e.id)).toEqual(['standup']);
+    expect(el.getEvents()[0].title).toBe('Renamed');
+  });
+
+  test('an occurrence of a series the calendar does not hold is rejected', async () => {
+    await mount();
+    el.events = [series()];
+    const occurrence = shownEvents()[0];
+    el.events = [];
+
+    expect(() => el.setEvents([occurrence])).toThrow(/occurrence of recurring event "standup"/);
+    expect(el.getEvents()).toEqual([]);
+  });
+
+  test('rejects non-iterable snapshots and non-object entries, clears on null', async () => {
+    await mount();
+    el.events = snapshot(2);
+
+    expect(() => el.setEvents({})).toThrow(TypeError);
+    expect(() => el.setEvents(42)).toThrow(TypeError);
+    expect(() => el.setEvents('abc')).toThrow(TypeError);
+    expect(() => el.setEvents([null])).toThrow(TypeError);
+    expect(() => el.setEvents([makeEvent(1), 'x'])).toThrow(TypeError);
+    expect(el.getEvents()).toHaveLength(2);
+
+    expect(el.setEvents(new Set(snapshot(3))).events).toHaveLength(3);
+    el.events = null;
+    expect(el.getEvents()).toEqual([]);
+    el.events = snapshot(1);
+    el.events = undefined;
+    expect(el.getEvents()).toEqual([]);
+  });
+});
+
+describe('StateManager.setEvents() fallback atomicity', () => {
+  let manager;
+
+  beforeEach(() => {
+    manager = new StateManager({ view: 'month', date: new Date(2026, 2, 15) });
+    manager.calendar.reconcileEvents = undefined;
+    manager.setEvents([makeEvent(1), makeEvent(2)]);
+  });
+
+  afterEach(() => {
+    manager.destroy();
+  });
+
+  test('validates every entry before touching the store', () => {
+    const notifications = [];
+    manager.subscribe(() => notifications.push('state'));
+    const errors = [];
+    manager.eventBus.on('event:error', data => errors.push(data.action));
+
+    expect(() => manager.setEvents([makeEvent(3), { id: 'evt-4', start: 'nope' }])).toThrow();
+
+    expect(manager.getEvents().map(e => e.id)).toEqual(['evt-1', 'evt-2']);
+    expect(manager.state.events.map(e => e.id)).toEqual(['evt-1', 'evt-2']);
+    expect(notifications).toEqual([]);
+    expect(errors).toEqual(['set']);
+  });
+
+  test('resyncs state from core when a mutation fails part-way', () => {
+    manager.calendar.updateEvent = () => null;
+
+    expect(() => manager.setEvents([makeEvent(3), makeEvent(1, { title: 'Changed' })])).toThrow(
+      /Failed to update event: evt-1/
+    );
+
+    const coreIds = manager.getEvents().map(e => e.id);
+    expect(coreIds).toEqual(manager.state.events.map(e => e.id));
+    expect(coreIds).toContain('evt-3');
+    expect(coreIds).not.toContain('evt-2');
+  });
+});
