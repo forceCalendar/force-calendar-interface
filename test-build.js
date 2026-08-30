@@ -5,44 +5,75 @@ import { resolve } from 'path';
 
 console.log('Testing ForceCalendar Interface build...\n');
 
-// Check if ESM build exists and exports correctly
-try {
-    const esmPath = resolve('./dist/force-calendar-interface.esm.js');
-    const esmContent = readFileSync(esmPath, 'utf8');
+// Custom elements that `import '@forcecalendar/interface'` must register and
+// the public classes every consumer relies on. If a bundler tree-shakes the
+// registration away (see "sideEffects" in package.json) the library is silently
+// inert, so both outputs are checked for the define() calls explicitly.
+const REQUIRED_ELEMENTS = ['forcecal-main', 'forcecal-event-form'];
+const REQUIRED_EXPORTS = [
+  'ForceCalendar',
+  'EventForm',
+  'StateManager',
+  'MonthViewRenderer',
+  'WeekViewRenderer',
+  'DayViewRenderer'
+];
 
-    // Check for key exports
-    const hasForceCalendar = esmContent.includes('ForceCalendar');
-    const hasMonthView = esmContent.includes('MonthView');
-    const hasWeekView = esmContent.includes('WeekView');
-    const hasDayView = esmContent.includes('DayView');
-    const hasCustomElement = esmContent.includes('customElements.define');
+let failures = 0;
 
-    console.log('✓ ESM build found');
-    console.log(`  - ForceCalendar: ${hasForceCalendar ? '✓' : '✗'}`);
-    console.log(`  - MonthView: ${hasMonthView ? '✓' : '✗'}`);
-    console.log(`  - WeekView: ${hasWeekView ? '✓' : '✗'}`);
-    console.log(`  - DayView: ${hasDayView ? '✓' : '✗'}`);
-    console.log(`  - Custom Element Registration: ${hasCustomElement ? '✓' : '✗'}`);
-} catch (error) {
-    console.error('✗ ESM build not found or invalid');
-    process.exit(1);
+function check(label, ok) {
+  console.log(`  - ${label}: ${ok ? '✓' : '✗'}`);
+  if (!ok) failures++;
 }
 
-// Check if UMD build exists
-try {
-    const umdPath = resolve('./dist/force-calendar-interface.umd.js');
-    const umdContent = readFileSync(umdPath, 'utf8');
-
-    // Check for UMD wrapper
-    const hasUmdWrapper = umdContent.includes('typeof exports') && umdContent.includes('typeof define');
-    const hasGlobalName = umdContent.includes('ForceCalendarInterface');
-
-    console.log('\n✓ UMD build found');
-    console.log(`  - UMD wrapper: ${hasUmdWrapper ? '✓' : '✗'}`);
-    console.log(`  - Global name: ${hasGlobalName ? '✓' : '✗'}`);
-} catch (error) {
-    console.error('✗ UMD build not found or invalid');
+function read(file) {
+  try {
+    return readFileSync(resolve(file), 'utf8');
+  } catch (error) {
+    console.error(`✗ ${file} not found or unreadable`);
     process.exit(1);
+  }
+}
+
+function definesElement(content, tag) {
+  return new RegExp(`customElements\\.define\\(\\s*[\`'"]${tag}[\`'"]`).test(content);
+}
+
+function esmExportNames(content) {
+  const statements = content.match(/export\s*\{[^}]*\}/g) || [];
+  const last = statements[statements.length - 1] || '';
+  return last
+    .replace(/^export\s*\{|\}$/g, '')
+    .split(',')
+    .map(entry =>
+      entry
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+    )
+    .filter(Boolean);
+}
+
+function umdExports(content, name) {
+  return new RegExp(`\\.${name}\\s*=|\\[\\s*["']${name}["']\\s*\\]\\s*=`).test(content);
+}
+
+const esm = read('./dist/force-calendar-interface.esm.js');
+console.log('✓ ESM build found');
+const esmNames = esmExportNames(esm);
+REQUIRED_EXPORTS.forEach(name => check(`exports ${name}`, esmNames.includes(name)));
+REQUIRED_ELEMENTS.forEach(tag => check(`registers <${tag}>`, definesElement(esm, tag)));
+
+const umd = read('./dist/force-calendar-interface.umd.js');
+console.log('\n✓ UMD build found');
+check('UMD wrapper', umd.includes('typeof exports') && umd.includes('typeof define'));
+check('global name ForceCalendarInterface', umd.includes('ForceCalendarInterface'));
+REQUIRED_EXPORTS.forEach(name => check(`exports ${name}`, umdExports(umd, name)));
+REQUIRED_ELEMENTS.forEach(tag => check(`registers <${tag}>`, definesElement(umd, tag)));
+
+if (failures > 0) {
+  console.error(`\n✗ Build test failed: ${failures} check(s) did not pass.`);
+  process.exit(1);
 }
 
 console.log('\n✅ Build test passed! Library is properly built.');

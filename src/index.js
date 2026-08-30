@@ -23,3 +23,4 @@ export { DayViewRenderer } from './renderers/DayViewRenderer.js';
 
 // Components
 export { ForceCalendar } from './components/ForceCalendar.js';
+export { EventForm } from './components/EventForm.js';

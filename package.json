@@ -20,9 +20,9 @@
     "types/**/*.d.ts"
   ],
   "sideEffects": [
+    "./dist/*.js",
     "./src/index.js",
-    "./src/components/ForceCalendar.js",
-    "./src/components/EventForm.js"
+    "./src/components/*.js"
   ],
   "scripts": {
     "dev": "vite",
